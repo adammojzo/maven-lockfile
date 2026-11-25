@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractMavenComponent.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">AbstractMavenComponent.java</span></div><h1>AbstractMavenComponent.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import io.github.chains_project.maven_lockfile.graph.DependencyNode;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * Base class for Maven components (plugins, extensions) that share common metadata structure.
+ * Contains artifact coordinates, checksums, repository information, and dependencies.
+ *
+ * &lt;p&gt;Subclasses are compared first by their concrete type, then by GAV coordinates.
+ * This ensures that a {@link MavenPlugin} and {@link MavenExtension} with the same
+ * GAV are not considered equal, as they serve different roles in the build lifecycle.
+ */
+public abstract class AbstractMavenComponent implements Comparable&lt;AbstractMavenComponent&gt; {
+
+    protected final GroupId groupId;
+    protected final ArtifactId artifactId;
+    protected final VersionNumber version;
+    protected final String checksum;
+    protected final String checksumAlgorithm;
+    // Intentionally excluded from equals/hashCode/compareTo: mirrors differ in URL but are equivalent.
+    protected final ResolvedUrl resolved;
+    protected final RepositoryId repositoryId;
+    protected final Set&lt;DependencyNode&gt; dependencies;
+    protected final Pom parentPom;
+
+    protected AbstractMavenComponent(
+            GroupId groupId,
+            ArtifactId artifactId,
+            VersionNumber version,
+            String checksum,
+            String checksumAlgorithm,
+            ResolvedUrl resolved,
+            RepositoryId repositoryId,
+            Set&lt;DependencyNode&gt; dependencies,
+<span class="fc" id="L38">            Pom parentPom) {</span>
+<span class="fc" id="L39">        this.groupId = groupId;</span>
+<span class="fc" id="L40">        this.artifactId = artifactId;</span>
+<span class="fc" id="L41">        this.version = version;</span>
+<span class="fc" id="L42">        this.checksum = checksum;</span>
+<span class="fc" id="L43">        this.checksumAlgorithm = checksumAlgorithm;</span>
+<span class="fc" id="L44">        this.resolved = resolved;</span>
+<span class="fc" id="L45">        this.repositoryId = repositoryId;</span>
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">        this.dependencies = dependencies == null ? Collections.emptySet() : dependencies;</span>
+<span class="fc" id="L47">        this.parentPom = parentPom;</span>
+<span class="fc" id="L48">    }</span>
+
+    public GroupId getGroupId() {
+<span class="fc" id="L51">        return groupId;</span>
+    }
+
+    public ArtifactId getArtifactId() {
+<span class="fc" id="L55">        return artifactId;</span>
+    }
+
+    public VersionNumber getVersion() {
+<span class="fc" id="L59">        return version;</span>
+    }
+
+    public String getChecksum() {
+<span class="fc" id="L63">        return checksum;</span>
+    }
+
+    public String getChecksumAlgorithm() {
+<span class="nc" id="L67">        return checksumAlgorithm;</span>
+    }
+
+    public ResolvedUrl getResolved() {
+<span class="nc" id="L71">        return resolved;</span>
+    }
+
+    public RepositoryId getRepositoryId() {
+<span class="nc" id="L75">        return repositoryId;</span>
+    }
+
+    public Set&lt;DependencyNode&gt; getDependencies() {
+<span class="nc" id="L79">        return dependencies;</span>
+    }
+
+    public Pom getParentPom() {
+<span class="fc" id="L83">        return parentPom;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L88">        return Objects.hash(</span>
+                groupId, artifactId, version, checksum, checksumAlgorithm, repositoryId, dependencies, parentPom);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (this == obj) {</span>
+<span class="nc" id="L95">            return true;</span>
+        }
+
+<span class="pc bpc" id="L98" title="1 of 4 branches missed.">        if (obj == null || this.getClass() != obj.getClass()) {</span>
+<span class="fc" id="L99">            return false;</span>
+        }
+
+<span class="fc" id="L102">        AbstractMavenComponent other = (AbstractMavenComponent) obj;</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        return Objects.equals(groupId, other.groupId)</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(artifactId, other.artifactId)</span>
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(version, other.version)</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(checksum, other.checksum)</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(checksumAlgorithm, other.checksumAlgorithm)</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(repositoryId, other.repositoryId)</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(dependencies, other.dependencies)</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(parentPom, other.parentPom);</span>
+    }
+
+    @Override
+    public int compareTo(AbstractMavenComponent other) {
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        if (this.getClass() != other.getClass()) {</span>
+<span class="fc" id="L116">            return this.getClass().getName().compareTo(other.getClass().getName());</span>
+        }
+
+<span class="fc" id="L119">        int groupIdCompare = groupId.compareTo(other.groupId);</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        if (groupIdCompare != 0) {</span>
+<span class="fc" id="L121">            return groupIdCompare;</span>
+        }
+<span class="fc" id="L123">        int artifactIdCompare = artifactId.compareTo(other.artifactId);</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        if (artifactIdCompare != 0) {</span>
+<span class="fc" id="L125">            return artifactIdCompare;</span>
+        }
+<span class="fc" id="L127">        int versionCompare = version.compareTo(other.version);</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if (versionCompare != 0) {</span>
+<span class="fc" id="L129">            return versionCompare;</span>
+        }
+<span class="fc" id="L131">        int checksumAlgorithmCompare = checksumAlgorithm.compareTo(other.checksumAlgorithm);</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        if (checksumAlgorithmCompare != 0) {</span>
+<span class="fc" id="L133">            return checksumAlgorithmCompare;</span>
+        }
+<span class="fc" id="L135">        return checksum.compareTo(other.checksum);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

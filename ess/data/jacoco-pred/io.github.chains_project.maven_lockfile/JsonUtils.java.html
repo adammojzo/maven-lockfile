@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JsonUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile</a> &gt; <span class="el_source">JsonUtils.java</span></div><h1>JsonUtils.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
+import io.github.chains_project.maven_lockfile.data.ArtifactId;
+import io.github.chains_project.maven_lockfile.data.ArtifactType;
+import io.github.chains_project.maven_lockfile.data.Classifier;
+import io.github.chains_project.maven_lockfile.data.GroupId;
+import io.github.chains_project.maven_lockfile.data.MavenScope;
+import io.github.chains_project.maven_lockfile.data.RepositoryId;
+import io.github.chains_project.maven_lockfile.data.ResolvedUrl;
+import io.github.chains_project.maven_lockfile.data.VersionNumber;
+import io.github.chains_project.maven_lockfile.graph.NodeId;
+
+public class JsonUtils {
+    private JsonUtils() {}
+
+    private static Gson getGson() {
+<span class="fc" id="L22">        return new GsonBuilder()</span>
+<span class="fc" id="L23">                .setPrettyPrinting()</span>
+<span class="fc" id="L24">                .registerTypeAdapter(VersionNumber.class, (JsonSerializer&lt;VersionNumber&gt;)</span>
+<span class="fc" id="L25">                        (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L26">                .registerTypeAdapter(VersionNumber.class, (JsonDeserializer&lt;VersionNumber&gt;)</span>
+<span class="nc" id="L27">                        (it, type, ignore) -&gt; VersionNumber.of(it.getAsString()))</span>
+<span class="fc" id="L28">                .registerTypeAdapter(ArtifactId.class, (JsonSerializer&lt;ArtifactId&gt;)</span>
+<span class="fc" id="L29">                        (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L30">                .registerTypeAdapter(ArtifactId.class, (JsonDeserializer&lt;ArtifactId&gt;)</span>
+<span class="nc" id="L31">                        (it, type, ignore) -&gt; ArtifactId.of(it.getAsString()))</span>
+<span class="fc" id="L32">                .registerTypeAdapter(ArtifactType.class, (JsonSerializer&lt;ArtifactType&gt;)</span>
+<span class="fc" id="L33">                        (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L34">                .registerTypeAdapter(ArtifactType.class, (JsonDeserializer&lt;ArtifactType&gt;)</span>
+<span class="nc" id="L35">                        (it, type, ignore) -&gt; ArtifactType.of(it.getAsString()))</span>
+<span class="fc" id="L36">                .registerTypeAdapter(Classifier.class, (JsonSerializer&lt;Classifier&gt;)</span>
+<span class="fc" id="L37">                        (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L38">                .registerTypeAdapter(Classifier.class, (JsonDeserializer&lt;Classifier&gt;)</span>
+<span class="nc" id="L39">                        (it, type, ignore) -&gt; Classifier.of(it.getAsString()))</span>
+<span class="fc" id="L40">                .registerTypeAdapter(</span>
+<span class="fc" id="L41">                        GroupId.class, (JsonSerializer&lt;GroupId&gt;) (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L42">                .registerTypeAdapter(</span>
+<span class="nc" id="L43">                        GroupId.class, (JsonDeserializer&lt;GroupId&gt;) (it, type, ignore) -&gt; GroupId.of(it.getAsString()))</span>
+<span class="fc" id="L44">                .registerTypeAdapter(</span>
+<span class="fc" id="L45">                        NodeId.class, (JsonSerializer&lt;NodeId&gt;) (it, type, ignore) -&gt; new JsonPrimitive(it.toString()))</span>
+<span class="fc" id="L46">                .registerTypeAdapter(NodeId.class, (JsonDeserializer&lt;NodeId&gt;)</span>
+<span class="nc" id="L47">                        (it, type, ignore) -&gt; NodeId.fromValue(it.getAsString()))</span>
+<span class="fc" id="L48">                .registerTypeAdapter(MavenScope.class, (JsonSerializer&lt;MavenScope&gt;)</span>
+<span class="fc" id="L49">                        (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L50">                .registerTypeAdapter(MavenScope.class, (JsonDeserializer&lt;MavenScope&gt;)</span>
+<span class="nc" id="L51">                        (it, type, ignore) -&gt; MavenScope.fromString(it.getAsString()))</span>
+<span class="fc" id="L52">                .registerTypeAdapter(ResolvedUrl.class, (JsonSerializer&lt;ResolvedUrl&gt;)</span>
+<span class="fc" id="L53">                        (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L54">                .registerTypeAdapter(ResolvedUrl.class, (JsonDeserializer&lt;ResolvedUrl&gt;)</span>
+<span class="nc" id="L55">                        (it, type, ignore) -&gt; ResolvedUrl.of(it.getAsString()))</span>
+<span class="fc" id="L56">                .registerTypeAdapter(RepositoryId.class, (JsonSerializer&lt;RepositoryId&gt;)</span>
+<span class="fc" id="L57">                        (it, type, ignore) -&gt; new JsonPrimitive(it.getValue()))</span>
+<span class="fc" id="L58">                .registerTypeAdapter(RepositoryId.class, (JsonDeserializer&lt;RepositoryId&gt;)</span>
+<span class="nc" id="L59">                        (it, type, ignore) -&gt; RepositoryId.of(it.getAsString()))</span>
+<span class="fc" id="L60">                .setLenient()</span>
+                // .registerTypeAdapter(LockFileDependency.class, new LockFileDependencyAdapter())
+<span class="fc" id="L62">                .create();</span>
+    }
+
+    public static String toJson(Object it) {
+<span class="fc" id="L66">        return getGson().toJson(it);</span>
+    }
+
+    public static &lt;T&gt; T fromJson(String it, Class&lt;T&gt; type) {
+<span class="nc" id="L70">        return getGson().fromJson(it, type);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

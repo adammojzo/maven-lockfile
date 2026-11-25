@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RepositoryId.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">RepositoryId.java</span></div><h1>RepositoryId.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import java.util.Objects;
+
+/**
+ * This class represents a repository id for an artifact.
+ * The repository id contains the id for the repository object in the pom.
+ * It is a string that is not null or empty. It is immutable.
+ */
+public class RepositoryId implements Comparable&lt;RepositoryId&gt; {
+    public static RepositoryId of(String repositoryId) {
+        // RepositoryId must be non-null.
+<span class="fc" id="L13">        String checked = Objects.requireNonNull(repositoryId, &quot;repositoryId cannot be null&quot;);</span>
+<span class="fc" id="L14">        return new RepositoryId(checked);</span>
+    }
+
+    public static RepositoryId None() {
+<span class="fc" id="L18">        return new RepositoryId(&quot;&quot;);</span>
+    }
+
+    private final String value;
+
+<span class="fc" id="L23">    public RepositoryId(String repositoryId) {</span>
+<span class="fc" id="L24">        this.value = Objects.requireNonNull(repositoryId);</span>
+<span class="fc" id="L25">    }</span>
+
+    public String getValue() {
+<span class="fc" id="L28">        return value;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L33">        return &quot;{&quot; + &quot; RepositoryId='&quot; + getValue() + &quot;'&quot; + &quot;}&quot;;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">        if (o == this) return true;</span>
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">        if (!(o instanceof RepositoryId)) {</span>
+<span class="nc" id="L40">            return false;</span>
+        }
+<span class="fc" id="L42">        RepositoryId resolvedUrl = (RepositoryId) o;</span>
+<span class="fc" id="L43">        return Objects.equals(value, resolvedUrl.value);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L48">        return Objects.hashCode(value);</span>
+    }
+
+    @Override
+    public int compareTo(RepositoryId o) {
+<span class="fc" id="L53">        return this.value.compareTo(o.value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

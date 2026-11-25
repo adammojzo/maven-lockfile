@@ -1,0 +1,49 @@
+== jdk.SocketRead (>=10ms): 3147 events, total 156.6 s blocked in socket reads
+   host repo.maven.apache.org: 3099 reads, 151.2 s
+   host oss.sonatype.org: 39 reads, 5.0 s
+   host repo1.maven.org: 7 reads, 0.2 s
+   host maven-central.storage-download.googleapis.com: 2 reads, 0.2 s
+      77.8 s   1908x  (no plugin frame)
+      67.5 s   1059x  resolvers.ProjectBuilder.buildProjectFromPomFile <- resolvers.ProjectBuilder.buildFromGav <- LockFileFacade.lambda$resolveParentsAndBomsForDependencies$9 <- LockFileFacade$$Lambda.accept
+       9.0 s    139x  resolvers.ProjectBuilder.buildProjectFromPomFile <- resolvers.ProjectBuilder.buildFromGav <- LockFileFacade.getAllPlugins <- LockFileFacade.generateLockFileFromProject
+       1.4 s     20x  resolvers.ProjectBuilder.buildProjectFromPomFile <- resolvers.ProjectBuilder.buildFromGav <- LockFileFacade.lambda$resolveParentsAndBomsForDependencies$9
+       0.5 s     11x  resolvers.ProjectBuilder.buildProjectFromPomFile
+       0.3 s      7x  resolvers.ProjectBuilder.buildProjectFromPomFile <- resolvers.ProjectBuilder.buildFromGav
+       0.1 s      3x  resolvers.ProjectBuilder.buildProjectFromPomFile <- resolvers.ProjectBuilder.buildFromGav <- LockFileFacade.getAllPlugins
+
+== jdk.ExecutionSample: 1403 CPU samples
+   top self frames:
+    45.2%  java.lang.invoke.VarHandleByteArrayAsInts$ArrayHandle.index
+     2.4%  org.codehaus.plexus.util.xml.pull.MXParser.nextImpl
+     2.4%  java.util.concurrent.ConcurrentHashMap.transfer
+     1.4%  com.sun.crypto.provider.GHASH.processBlocks
+     1.3%  sun.security.provider.SHA.implCompress0
+     1.1%  java.util.concurrent.ConcurrentHashMap.putVal
+     1.0%  org.codehaus.plexus.util.xml.pull.MXParser.parseStartTag
+     0.9%  java.util.HashMap.getNode
+     0.9%  java.lang.AbstractStringBuilder.ensureCapacityInternal
+     0.8%  java.util.HashMap.putVal
+   plugin methods (inclusive):
+    48.2%  GenerateLockFileMojo.execute
+    48.0%  LockFileFacade.generateLockFileFromProject
+    45.2%  resolvers.ProjectBuilder.buildFromGav
+    45.0%  resolvers.ProjectBuilder.buildProjectFromPomFile
+    42.4%  LockFileFacade.lambda$resolveParentsAndBomsForDependencies$9
+    42.3%  LockFileFacade$$Lambda.accept
+    42.3%  LockFileFacade.resolveParentsAndBomsForDependencies
+    42.1%  LockFileFacade.getAllPlugins
+    36.9%  LockFileFacade.resolveComponentDependencies
+    12.0%  checksum.RemoteChecksumCalculator.calculateChecksumInternal
+    11.8%  checksum.RemoteChecksumCalculator.calculateArtifactChecksum
+    10.7%  checksum.RemoteChecksumCalculator.lambda$prewarmArtifactCache$2
+== jdk.ExecutionSample under buildProjectFromPomFile: 632 of 1403
+      313  (0.0s)  DefaultProjectBuilder.resolveDependencies (dependency resolution)
+      287  (0.0s)  DefaultModelBuilder.build (model only)
+       32  (0.0s)  other
+== jdk.SocketRead under buildProjectFromPomFile: 1239 of 3147
+     1063  (68.4s)  DefaultProjectBuilder.resolveDependencies (dependency resolution)
+      176  (10.4s)  DefaultModelBuilder.build (model only)
+== callers of VarHandleByteArrayAsInts hot frame
+     634 java.lang.invoke.VarHandleByteArrayAsInts$ArrayHandle.get <- java.lang.invoke.VarHandleGuards.guard_LI_I <- sun.security.provider.ByteArrayAccess.b2iBig64 <- sun.security.provider.SHA.implCompress0
+       1 java.lang.invoke.VarHandleGuards.guard_LI_I <- sun.security.provider.ByteArrayAccess.b2iBig64 <- sun.security.provider.SHA.implCompress0 <- sun.security.provider.SHA.implCompress
+       1 java.lang.invoke.VarHandleGuards.guard_LI_I <- sun.security.provider.MD5.implCompress0 <- sun.security.provider.MD5.implCompress <- sun.security.provider.MD5.implDigest

@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValidationPhases.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.reporting</a> &gt; <span class="el_source">ValidationPhases.java</span></div><h1>ValidationPhases.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.reporting;
+
+import io.github.chains_project.maven_lockfile.JsonUtils;
+import io.github.chains_project.maven_lockfile.LockFileEquality;
+import io.github.chains_project.maven_lockfile.data.Config;
+import io.github.chains_project.maven_lockfile.data.LockFile;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * All built-in {@link ValidationPhase} implementations, in the order they are run during
+ * {@code mvn maven-lockfile:validate}.
+ */
+public final class ValidationPhases {
+
+    private ValidationPhases() {}
+
+    public static List&lt;ValidationPhase&gt; all() {
+<span class="fc" id="L20">        return List.of(</span>
+                new EnvironmentPhase(),
+                new PomPhase(),
+                new CorePhase(),
+                new MavenPluginsPhase(),
+                new BomsPhase(),
+                new ParentPomPhase(),
+                new ExtensionsPhase());
+    }
+
+    private static final class EnvironmentPhase implements ValidationPhase {
+
+        @Override
+        public boolean isEnabled(Config config) {
+<span class="fc" id="L34">            return config.isIncludeEnvironment();</span>
+        }
+
+        @Override
+        public Optional&lt;String&gt; validate(LockFile fromFile, LockFile fromProject, Config config) {
+<span class="fc bfc" id="L39" title="All 2 branches covered.">            if (Objects.equals(fromFile.getEnvironment(), fromProject.getEnvironment())) {</span>
+<span class="fc" id="L40">                return Optional.empty();</span>
+            }
+<span class="fc" id="L42">            String msg = &quot;Lock file environment does not match project environment.\n&quot;</span>
+<span class="fc" id="L43">                    + &quot;Lockfile environment: &quot; + fromFile.getEnvironment() + &quot;\n&quot;</span>
+<span class="fc" id="L44">                    + &quot;Project environment:  &quot; + fromProject.getEnvironment() + &quot;\n&quot;;</span>
+<span class="fc" id="L45">            return Optional.of(msg);</span>
+        }
+
+        @Override
+        public boolean isWarn(Config config) {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            return config.getOnEnvironmentalValidationFailure() == Config.OnEnvironmentalValidationFailure.Warn;</span>
+        }
+    }
+
+    private static final class PomPhase implements ValidationPhase {
+
+        @Override
+        public boolean isEnabled(Config config) {
+<span class="fc" id="L58">            return true;</span>
+        }
+
+        @Override
+        public Optional&lt;String&gt; validate(LockFile fromFile, LockFile fromProject, Config config) {
+<span class="fc bfc" id="L63" title="All 2 branches covered.">            if (LockFileEquality.pomEqual(fromFile.getPom(), fromProject.getPom(), false)) {</span>
+<span class="fc" id="L64">                return Optional.empty();</span>
+            }
+<span class="fc" id="L66">            String msg = &quot;Pom checksum mismatch. Differences:\nYour lockfile pom:\n&quot;</span>
+<span class="fc" id="L67">                    + JsonUtils.toJson(fromFile.getPom())</span>
+                    + &quot;\nYour project pom:\n&quot;
+<span class="fc" id="L69">                    + JsonUtils.toJson(fromProject.getPom())</span>
+                    + &quot;\n&quot;;
+<span class="fc" id="L71">            return Optional.of(msg);</span>
+        }
+
+        @Override
+        public boolean isWarn(Config config) {
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">            return config.getOnPomValidationFailure() == Config.OnPomValidationFailure.Warn;</span>
+        }
+    }
+
+    private static final class CorePhase implements ValidationPhase {
+
+        @Override
+        public boolean isEnabled(Config config) {
+<span class="fc" id="L84">            return true;</span>
+        }
+
+        @Override
+        public Optional&lt;String&gt; validate(LockFile fromFile, LockFile fromProject, Config config) {
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            if (LockFileEquality.coreEqual(fromFile, fromProject)) {</span>
+<span class="fc" id="L90">                return Optional.empty();</span>
+            }
+<span class="fc" id="L92">            var diff = LockFileDifference.diff(fromFile, fromProject);</span>
+<span class="fc" id="L93">            String msg = &quot;Failed verifying lock file. Lock file validation failed. Differences:\n&quot;</span>
+                    + &quot;Your lockfile from file is for: &quot;
+<span class="fc" id="L95">                    + fromFile.getGroupId().getValue() + &quot;:&quot;</span>
+<span class="fc" id="L96">                    + fromFile.getName().getValue() + &quot;:&quot;</span>
+<span class="fc" id="L97">                    + fromFile.getVersion().getValue() + &quot;\n&quot;</span>
+                    + &quot;Your generated lockfile is for: &quot;
+<span class="fc" id="L99">                    + fromProject.getGroupId().getValue() + &quot;:&quot;</span>
+<span class="fc" id="L100">                    + fromProject.getName().getValue() + &quot;:&quot;</span>
+<span class="fc" id="L101">                    + fromProject.getVersion().getValue() + &quot;\n&quot;</span>
+                    + &quot;Missing dependencies in lock file:\n &quot;
+<span class="fc" id="L103">                    + JsonUtils.toJson(diff.getMissingDependenciesInFile()) + &quot;\n&quot;</span>
+                    + &quot;Missing dependencies in project:\n &quot;
+<span class="fc" id="L105">                    + JsonUtils.toJson(diff.getMissingDependenciesInProject()) + &quot;\n&quot;;</span>
+<span class="fc" id="L106">            return Optional.of(msg);</span>
+        }
+
+        @Override
+        public boolean isWarn(Config config) {
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">            return config.getOnValidationFailure() == Config.OnValidationFailure.Warn;</span>
+        }
+    }
+
+    private static final class MavenPluginsPhase implements ValidationPhase {
+
+        @Override
+        public boolean isEnabled(Config config) {
+<span class="fc" id="L119">            return config.isIncludeMavenPlugins();</span>
+        }
+
+        @Override
+        public Optional&lt;String&gt; validate(LockFile fromFile, LockFile fromProject, Config config) {
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            if (LockFileEquality.mavenPluginsEqual(fromFile, fromProject)) {</span>
+<span class="fc" id="L125">                return Optional.empty();</span>
+            }
+<span class="fc" id="L127">            var diff = LockFileDifference.diff(fromFile, fromProject);</span>
+<span class="fc" id="L128">            String msg = &quot;Maven plugin validation failed. Differences:\n&quot;</span>
+                    + &quot;Missing plugins in lockfile:\n &quot;
+<span class="fc" id="L130">                    + JsonUtils.toJson(diff.getMissingPluginsInFile()) + &quot;\n&quot;</span>
+                    + &quot;Missing plugins in project:\n &quot;
+<span class="fc" id="L132">                    + JsonUtils.toJson(diff.getMissingPluginsInProject()) + &quot;\n&quot;;</span>
+<span class="fc" id="L133">            return Optional.of(msg);</span>
+        }
+
+        @Override
+        public boolean isWarn(Config config) {
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">            return config.getOnMavenPluginValidationFailure() == Config.OnMavenPluginValidationFailure.Warn;</span>
+        }
+    }
+
+    private static final class BomsPhase implements ValidationPhase {
+
+        @Override
+        public boolean isEnabled(Config config) {
+<span class="fc" id="L146">            return config.isIncludeBoms();</span>
+        }
+
+        @Override
+        public Optional&lt;String&gt; validate(LockFile fromFile, LockFile fromProject, Config config) {
+<span class="fc bfc" id="L151" title="All 2 branches covered.">            if (LockFileEquality.bomsEqualForAll(fromFile, fromProject, config.isIncludeParentPom())) {</span>
+<span class="fc" id="L152">                return Optional.empty();</span>
+            }
+<span class="fc" id="L154">            return Optional.of(&quot;Bom validation failed.&quot;</span>
+                    + &quot; The BOM membership or BOM POM data of dependencies differs&quot;
+                    + &quot; between the lockfile and the project.&quot;);
+        }
+
+        @Override
+        public boolean isWarn(Config config) {
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">            return config.getOnBomValidationFailure() == Config.OnBomValidationFailure.Warn;</span>
+        }
+    }
+
+    private static final class ParentPomPhase implements ValidationPhase {
+
+        @Override
+        public boolean isEnabled(Config config) {
+<span class="fc" id="L169">            return config.isIncludeParentPom();</span>
+        }
+
+        @Override
+        public Optional&lt;String&gt; validate(LockFile fromFile, LockFile fromProject, Config config) {
+<span class="fc bfc" id="L174" title="All 2 branches covered.">            if (LockFileEquality.parentPomsEqualForAll(fromFile, fromProject)) {</span>
+<span class="fc" id="L175">                return Optional.empty();</span>
+            }
+<span class="fc" id="L177">            return Optional.of(&quot;Parent POM validation failed.&quot;</span>
+                    + &quot; The parentPom of one or more dependencies or plugins differs&quot;
+                    + &quot; between the lockfile and the project.&quot;);
+        }
+
+        @Override
+        public boolean isWarn(Config config) {
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">            return config.getOnParentPomValidationFailure() == Config.OnParentPomValidationFailure.Warn;</span>
+        }
+    }
+
+    private static final class ExtensionsPhase implements ValidationPhase {
+
+        @Override
+        public boolean isEnabled(Config config) {
+<span class="fc" id="L192">            return config.isIncludeMavenExtensions();</span>
+        }
+
+        @Override
+        public Optional&lt;String&gt; validate(LockFile fromFile, LockFile fromProject, Config config) {
+<span class="fc bfc" id="L197" title="All 2 branches covered.">            if (Objects.equals(fromFile.getMavenExtensions(), fromProject.getMavenExtensions())) {</span>
+<span class="fc" id="L198">                return Optional.empty();</span>
+            }
+<span class="fc" id="L200">            var diff = LockFileDifference.diff(fromFile, fromProject);</span>
+<span class="fc" id="L201">            String msg = &quot;Maven extensions validation failed.\n&quot;</span>
+                    + &quot;Missing extensions in lockfile:\n &quot;
+<span class="fc" id="L203">                    + JsonUtils.toJson(diff.getMissingExtensionsInFile()) + &quot;\n&quot;</span>
+                    + &quot;Missing extensions in project:\n &quot;
+<span class="fc" id="L205">                    + JsonUtils.toJson(diff.getMissingExtensionsInProject()) + &quot;\n&quot;;</span>
+<span class="fc" id="L206">            return Optional.of(msg);</span>
+        }
+
+        @Override
+        public boolean isWarn(Config config) {
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">            return config.getOnMavenExtensionsValidationFailure() == Config.OnMavenExtensionsValidationFailure.Warn;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

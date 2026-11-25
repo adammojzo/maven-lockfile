@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DependencyGraph.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.graph</a> &gt; <span class="el_source">DependencyGraph.java</span></div><h1>DependencyGraph.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.graph;
+
+import com.google.common.graph.Graph;
+import com.google.common.graph.MutableGraph;
+import io.github.chains_project.maven_lockfile.checksum.AbstractChecksumCalculator;
+import io.github.chains_project.maven_lockfile.checksum.RepositoryInformation;
+import io.github.chains_project.maven_lockfile.data.ArtifactId;
+import io.github.chains_project.maven_lockfile.data.ArtifactType;
+import io.github.chains_project.maven_lockfile.data.Classifier;
+import io.github.chains_project.maven_lockfile.data.GroupId;
+import io.github.chains_project.maven_lockfile.data.MavenScope;
+import io.github.chains_project.maven_lockfile.data.VersionNumber;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import java.util.*;
+import java.util.stream.Collectors;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.shared.dependency.graph.internal.SpyingDependencyNodeUtils;
+
+public class DependencyGraph {
+
+    private final Set&lt;DependencyNode&gt; graph;
+
+    public Set&lt;DependencyNode&gt; getRoots() {
+<span class="fc" id="L24">        return graph.stream()</span>
+<span class="pc bpc" id="L25" title="1 of 2 branches missed.">                .filter(node -&gt; node.getParent() == null)</span>
+<span class="fc" id="L26">                .collect(Collectors.toCollection(</span>
+<span class="fc" id="L27">                        () -&gt; new TreeSet&lt;&gt;(Comparator.comparing(DependencyNode::getComparatorString))));</span>
+    }
+
+<span class="fc" id="L30">    private DependencyGraph(Set&lt;DependencyNode&gt; graph) {</span>
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">        this.graph = graph == null ? Set.of() : graph;</span>
+<span class="fc" id="L32">    }</span>
+
+    /**
+     * @return the graph
+     */
+    public Set&lt;DependencyNode&gt; getGraph() {
+<span class="fc" id="L38">        return graph;</span>
+    }
+
+    /**
+     * Uses breadth-first search to traverse the dependency graph and generate a flat dependency set.
+     *
+     * @return a set of all the dependencies
+     */
+    public Set&lt;DependencyNode&gt; getDependencySet() {
+<span class="fc" id="L47">        var dependencySet = new TreeSet&lt;DependencyNode&gt;();</span>
+<span class="fc" id="L48">        var queue = new LinkedList&lt;&gt;(getRoots());</span>
+
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        while (!queue.isEmpty()) {</span>
+<span class="fc" id="L51">            DependencyNode current = queue.poll();</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">            if (dependencySet.add(current)) {</span>
+                // Only add children if this node was newly added (avoids cycles)
+<span class="fc" id="L54">                queue.addAll(current.getChildren());</span>
+            }
+<span class="fc" id="L56">        }</span>
+
+<span class="fc" id="L58">        return dependencySet;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">        if (o == this) return true;</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">        if (!(o instanceof DependencyGraph)) {</span>
+<span class="nc" id="L65">            return false;</span>
+        }
+<span class="fc" id="L67">        DependencyGraph dependencyGraph = (DependencyGraph) o;</span>
+<span class="fc" id="L68">        return Objects.equals(graph, dependencyGraph.graph);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L73">        return Objects.hashCode(graph);</span>
+    }
+
+    public Optional&lt;DependencyNode&gt; getParentForNode(DependencyNode node) {
+<span class="fc" id="L77">        return graph.stream().filter(n -&gt; n.id.equals(node.getParent())).findFirst();</span>
+    }
+
+    public static DependencyGraph of(
+            MutableGraph&lt;org.apache.maven.shared.dependency.graph.DependencyNode&gt; graph,
+            AbstractChecksumCalculator calc,
+            boolean reduced,
+            Set&lt;String&gt; reactorGavs) {
+<span class="fc" id="L85">        var roots = graph.nodes().stream()</span>
+<span class="fc" id="L86">                .filter(it -&gt; graph.predecessors(it).isEmpty())</span>
+<span class="fc" id="L87">                .collect(Collectors.toList());</span>
+
+        // Collect unique non-root artifacts and let the calculator pre-warm its cache
+<span class="fc" id="L90">        Set&lt;String&gt; seen = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L91">        List&lt;Artifact&gt; uniqueArtifacts = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        for (var node : graph.nodes()) {</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">            if (!graph.predecessors(node).isEmpty()) {</span>
+<span class="fc" id="L94">                var a = node.getArtifact();</span>
+<span class="fc" id="L95">                String key = a.getGroupId() + &quot;:&quot; + a.getArtifactId() + &quot;:&quot; + a.getVersion() + &quot;:&quot;</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">                        + (a.getClassifier() != null ? a.getClassifier() : &quot;&quot;) + &quot;:&quot; + a.getType();</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">                if (seen.add(key)) {</span>
+<span class="fc" id="L98">                    uniqueArtifacts.add(a);</span>
+                }
+            }
+<span class="fc" id="L101">        }</span>
+<span class="fc" id="L102">        calc.prewarmArtifactCache(uniqueArtifacts);</span>
+
+<span class="fc" id="L104">        Set&lt;DependencyNode&gt; nodes = new TreeSet&lt;&gt;(Comparator.comparing(DependencyNode::getComparatorString));</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        for (var artifact : roots) {</span>
+<span class="fc" id="L106">            createDependencyNode(artifact, graph, calc, true, reduced, reactorGavs)</span>
+<span class="fc" id="L107">                    .ifPresent(nodes::add);</span>
+<span class="fc" id="L108">        }</span>
+        // maven dependency tree contains the project itself as a root node. We remove it here.
+<span class="fc" id="L110">        Set&lt;DependencyNode&gt; dependencyRoots = nodes.stream()</span>
+<span class="fc" id="L111">                .flatMap(v -&gt; v.getChildren().stream())</span>
+<span class="fc" id="L112">                .collect(Collectors.toCollection(</span>
+<span class="fc" id="L113">                        () -&gt; new TreeSet&lt;&gt;(Comparator.comparing(DependencyNode::getComparatorString))));</span>
+<span class="fc" id="L114">        dependencyRoots.forEach(v -&gt; v.setParent(null));</span>
+<span class="fc" id="L115">        return new DependencyGraph(dependencyRoots);</span>
+    }
+
+    private static Optional&lt;DependencyNode&gt; createDependencyNode(
+            org.apache.maven.shared.dependency.graph.DependencyNode node,
+            Graph&lt;org.apache.maven.shared.dependency.graph.DependencyNode&gt; graph,
+            AbstractChecksumCalculator calc,
+            boolean isRoot,
+            boolean reduce,
+            Set&lt;String&gt; reactorGavs) {
+<span class="fc" id="L125">        PluginLogManager.getLog()</span>
+<span class="fc" id="L126">                .debug(String.format(&quot;Creating dependency node for: %s, root: %s&quot;, node.toNodeString(), isRoot));</span>
+<span class="fc" id="L127">        var groupId = GroupId.of(node.getArtifact().getGroupId());</span>
+<span class="fc" id="L128">        var artifactId = ArtifactId.of(node.getArtifact().getArtifactId());</span>
+<span class="fc" id="L129">        var version = VersionNumber.of(node.getArtifact().getVersion());</span>
+<span class="fc" id="L130">        var classifier = Classifier.of(node.getArtifact().getClassifier());</span>
+<span class="fc" id="L131">        var type = ArtifactType.of(node.getArtifact().getType());</span>
+<span class="fc" id="L132">        PluginLogManager.getLog().debug(String.format(&quot;Calculating checksum for %s&quot;, node.toNodeString()));</span>
+        // Reactor-local SNAPSHOTs are rebuilt every run, so their checksum drifts and
+        // can't be pinned; leave it empty (releases still get a real checksum). See #1610.
+<span class="fc" id="L135">        var nodeArtifact = node.getArtifact();</span>
+<span class="fc" id="L136">        var reactorGav =</span>
+<span class="fc" id="L137">                nodeArtifact.getGroupId() + &quot;:&quot; + nodeArtifact.getArtifactId() + &quot;:&quot; + nodeArtifact.getBaseVersion();</span>
+        var checksum =
+<span class="fc bfc" id="L139" title="All 4 branches covered.">                isRoot || reactorGavs.contains(reactorGav) ? &quot;&quot; : calc.calculateArtifactChecksum(node.getArtifact());</span>
+<span class="fc" id="L140">        var scope = MavenScope.fromString(node.getArtifact().getScope());</span>
+<span class="fc" id="L141">        PluginLogManager.getLog().debug(String.format(&quot;Resolving repository information for %s&quot;, node.toNodeString()));</span>
+        var repositoryInformation =
+<span class="fc bfc" id="L143" title="All 2 branches covered.">                isRoot ? RepositoryInformation.Unresolved() : calc.getArtifactResolvedField(node.getArtifact());</span>
+<span class="fc" id="L144">        Optional&lt;String&gt; winnerVersion = SpyingDependencyNodeUtils.getWinnerVersion(node);</span>
+<span class="fc" id="L145">        boolean included = winnerVersion.isEmpty();</span>
+        // if there is no conflict marker for this node, we use the version from the artifact
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        String baseVersion = included ? node.getArtifact().getVersion() : winnerVersion.get();</span>
+<span class="fc bfc" id="L148" title="All 4 branches covered.">        if (reduce &amp;&amp; !included) {</span>
+<span class="fc" id="L149">            return Optional.empty();</span>
+        }
+<span class="fc" id="L151">        DependencyNode value = new DependencyNode(</span>
+                artifactId,
+                groupId,
+                version,
+                classifier,
+                type,
+                scope,
+<span class="fc" id="L158">                repositoryInformation.getResolvedUrl(),</span>
+<span class="fc" id="L159">                repositoryInformation.getRepositoryId(),</span>
+<span class="fc" id="L160">                calc.getChecksumAlgorithm(),</span>
+                checksum);
+<span class="fc" id="L162">        value.setSelectedVersion(baseVersion);</span>
+<span class="fc" id="L163">        value.setIncluded(included);</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        for (var artifact : graph.successors(node)) {</span>
+<span class="fc" id="L165">            createDependencyNode(artifact, graph, calc, false, reduce, reactorGavs)</span>
+<span class="fc" id="L166">                    .ifPresent(value::addChild);</span>
+<span class="fc" id="L167">        }</span>
+<span class="fc" id="L168">        return Optional.of(value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

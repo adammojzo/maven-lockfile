@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValidateMojo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile</a> &gt; <span class="el_source">ValidateMojo.java</span></div><h1>ValidateMojo.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile;
+
+import static io.github.chains_project.maven_lockfile.LockFileFacade.getLockFilePath;
+
+import io.github.chains_project.maven_lockfile.checksum.AbstractChecksumCalculator;
+import io.github.chains_project.maven_lockfile.data.Config;
+import io.github.chains_project.maven_lockfile.data.Environment;
+import io.github.chains_project.maven_lockfile.data.LockFile;
+import io.github.chains_project.maven_lockfile.data.MetaData;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import io.github.chains_project.maven_lockfile.reporting.ValidationPhases;
+import java.io.IOException;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.ResolutionScope;
+
+/**
+ * Plugin goal that validates a project against its lock file.
+ *
+ */
+@Mojo(
+        name = &quot;validate&quot;,
+        defaultPhase = LifecyclePhase.COMPILE,
+        requiresDependencyResolution = ResolutionScope.COMPILE,
+        requiresOnline = true)
+<span class="fc" id="L27">public class ValidateMojo extends AbstractLockfileMojo {</span>
+
+    /**
+     * Validate the local copies of the dependencies against the project's lock file.
+     * @throws MojoExecutionException if the lock file is invalid or could not be read.
+     */
+    public void execute() throws MojoExecutionException {
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (skip) {</span>
+<span class="nc" id="L35">            getLog().info(&quot;Skipping maven-lockfile&quot;);</span>
+<span class="nc" id="L36">            return;</span>
+        }
+<span class="nc" id="L38">        PluginLogManager.setLog(getLog());</span>
+        try {
+<span class="nc" id="L40">            getLog().info(&quot;Validating lock file ...&quot;);</span>
+<span class="nc" id="L41">            LockFile lockFileFromFile = LockFile.readLockFile(getLockFilePath(project, lockfileName));</span>
+<span class="nc" id="L42">            Config baseConfig = lockFileFromFile.getConfig();</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">            if (baseConfig == null) {</span>
+<span class="nc" id="L44">                getLog().warn(&quot;No config was found in the lock file. Using default config.&quot;);</span>
+<span class="nc" id="L45">                baseConfig = getConfig();</span>
+            }
+<span class="nc" id="L47">            Config config = mergeConfigWithCliArgs(baseConfig);</span>
+<span class="nc" id="L48">            Environment environment = null;</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">            if (config.isIncludeEnvironment()) {</span>
+<span class="nc" id="L50">                environment = generateMetaInformation();</span>
+            }
+<span class="nc" id="L52">            MetaData metaData = new MetaData(environment, config);</span>
+<span class="nc" id="L53">            AbstractChecksumCalculator checksumCalculator = getChecksumCalculator(config, true);</span>
+<span class="nc" id="L54">            LockFile lockFileFromProject = LockFileFacade.generateLockFileFromProject(</span>
+                    session, project, dependencyCollectorBuilder, checksumCalculator, metaData, repositorySystem);
+<span class="nc bnc" id="L56" title="All 2 branches missed.">            for (var phase : ValidationPhases.all()) {</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">                if (!phase.isEnabled(config)) continue;</span>
+<span class="nc" id="L58">                var failure = phase.validate(lockFileFromFile, lockFileFromProject, config);</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">                if (failure.isEmpty()) continue;</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">                if (phase.isWarn(config)) {</span>
+<span class="nc" id="L61">                    getLog().warn(failure.get());</span>
+                } else {
+<span class="nc" id="L63">                    throw new MojoExecutionException(failure.get());</span>
+                }
+<span class="nc" id="L65">            }</span>
+
+<span class="nc" id="L67">        } catch (IOException e) {</span>
+<span class="nc" id="L68">            throw new MojoExecutionException(&quot;Could not read lock file&quot;, e);</span>
+<span class="nc" id="L69">        }</span>
+<span class="nc" id="L70">        getLog().info(&quot;Lockfile successfully validated.&quot;);</span>
+<span class="nc" id="L71">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

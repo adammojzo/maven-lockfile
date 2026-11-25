@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BomResolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.resolvers</a> &gt; <span class="el_source">BomResolver.java</span></div><h1>BomResolver.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.resolvers;
+
+import io.github.chains_project.maven_lockfile.checksum.AbstractChecksumCalculator;
+import io.github.chains_project.maven_lockfile.data.ArtifactId;
+import io.github.chains_project.maven_lockfile.data.GroupId;
+import io.github.chains_project.maven_lockfile.data.Pom;
+import io.github.chains_project.maven_lockfile.data.VersionNumber;
+import io.github.chains_project.maven_lockfile.graph.DependencyGraph;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.project.MavenProject;
+
+public class BomResolver {
+    private final MavenSession session;
+
+    @SuppressWarnings(&quot;deprecation&quot;)
+    private final List&lt;ArtifactRepository&gt; repositories;
+
+    private final AbstractChecksumCalculator checksumCalculator;
+
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public BomResolver(
+            MavenSession session,
+            List&lt;ArtifactRepository&gt; repositories,
+<span class="fc" id="L32">            AbstractChecksumCalculator checksumCalculator) {</span>
+<span class="fc" id="L33">        this.session = session;</span>
+<span class="fc" id="L34">        this.repositories = repositories;</span>
+<span class="fc" id="L35">        this.checksumCalculator = checksumCalculator;</span>
+<span class="fc" id="L36">    }</span>
+
+    /**
+     * Resolve all the BOM POMs for a project.
+     *
+     * @param project The project to resolve the BOM POMs from.
+     * @return A set containing all the resolved BOM POMs.
+     */
+    public Set&lt;Pom&gt; resolveForProject(MavenProject project) {
+<span class="fc" id="L45">        var model = project.getOriginalModel();</span>
+<span class="fc" id="L46">        var dependencyManagement = model.getDependencyManagement();</span>
+<span class="fc" id="L47">        var projectBuilder = new ProjectBuilder(session, repositories, false);</span>
+<span class="fc" id="L48">        var boms = new TreeSet&lt;Pom&gt;();</span>
+
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (dependencyManagement == null</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">                || dependencyManagement.getDependencies().isEmpty()) {</span>
+<span class="fc" id="L52">            return Collections.emptySet();</span>
+        }
+
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        for (Dependency dependency : dependencyManagement.getDependencies()) {</span>
+            // A BOM POM always has type=pom and scope=import
+<span class="pc bpc" id="L57" title="1 of 4 branches missed.">            if (&quot;pom&quot;.equals(dependency.getType()) &amp;&amp; &quot;import&quot;.equals(dependency.getScope())) {</span>
+<span class="fc" id="L58">                var resolvedVersion = interpolateProperty(dependency.getVersion(), project);</span>
+<span class="fc" id="L59">                var resolvedGroupId = interpolateProperty(dependency.getGroupId(), project);</span>
+<span class="fc" id="L60">                var resolvedArtifactId = interpolateProperty(dependency.getArtifactId(), project);</span>
+<span class="fc" id="L61">                var bomProjectOptional =</span>
+<span class="fc" id="L62">                        projectBuilder.buildFromGav(resolvedGroupId, resolvedArtifactId, resolvedVersion);</span>
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">                if (bomProjectOptional.isEmpty()) {</span>
+<span class="fc" id="L65">                    PluginLogManager.getLog().error(String.format(&quot;Could not resolve BOM for %s&quot;, dependency));</span>
+<span class="fc" id="L66">                    throw new BomResolutionException(&quot;Error resolving BOM pom, fail fast&quot;);</span>
+                }
+
+<span class="fc" id="L69">                var bomProject = bomProjectOptional.get();</span>
+<span class="fc" id="L70">                var bomBoms = resolveForProject(bomProject);</span>
+<span class="fc" id="L71">                var bomTree = resolveBomParents(bomProject);</span>
+<span class="pc bpc" id="L72" title="1 of 4 branches missed.">                if (!bomBoms.isEmpty() &amp;&amp; bomTree != null) {</span>
+<span class="fc" id="L73">                    bomTree.setBoms(bomBoms);</span>
+                }
+<span class="fc" id="L75">                boms.add(bomTree);</span>
+            }
+<span class="fc" id="L77">        }</span>
+
+<span class="fc" id="L79">        return boms;</span>
+    }
+
+    /**
+     * Resolve the BOM POMs for all the dependencies in a DependencyGraph.
+     *
+     * @param graph The dependency graph
+     */
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public void resolveBomsForDependencies(DependencyGraph graph) {
+<span class="nc" id="L89">        ProjectBuilder projectBuilder = new ProjectBuilder(session, repositories, false);</span>
+<span class="nc" id="L90">        BomResolver bomResolver = new BomResolver(session, repositories, checksumCalculator);</span>
+
+<span class="nc" id="L92">        graph.getDependencySet().forEach(node -&gt; {</span>
+<span class="nc" id="L93">            var projectOptional = projectBuilder.buildFromGav(</span>
+<span class="nc" id="L94">                    node.getGroupId().getValue(),</span>
+<span class="nc" id="L95">                    node.getArtifactId().getValue(),</span>
+<span class="nc" id="L96">                    node.getVersion().getValue());</span>
+
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            if (projectOptional.isEmpty()) {</span>
+<span class="nc" id="L99">                PluginLogManager.getLog().warn(String.format(&quot;Skipping BOM resolution for %s&quot;, node));</span>
+<span class="nc" id="L100">                return;</span>
+            }
+
+<span class="nc" id="L103">            Set&lt;Pom&gt; boms = bomResolver.resolveForProject(projectOptional.get());</span>
+
+<span class="nc bnc" id="L105" title="All 2 branches missed.">            if (!boms.isEmpty()) {</span>
+                // TODO: Avoid the mutation of the graph within this function
+<span class="nc" id="L107">                node.setBoms(boms);</span>
+            }
+<span class="nc" id="L109">        });</span>
+<span class="nc" id="L110">    }</span>
+
+    /** Limitation
+     *  This does not work when there are multiple placeholders in the text like ${main.version.number}${minor.version.number}
+     *  I am not aware of any project which could use it like that.*/
+    private String interpolateProperty(String textOrPlaceholder, MavenProject project) {
+<span class="pc bpc" id="L116" title="2 of 6 branches missed.">        if (textOrPlaceholder != null &amp;&amp; textOrPlaceholder.startsWith(&quot;${&quot;) &amp;&amp; textOrPlaceholder.endsWith(&quot;}&quot;)) {</span>
+<span class="fc" id="L117">            String propertyName = textOrPlaceholder.substring(2, textOrPlaceholder.length() - 1);</span>
+
+            // Check project properties (interpolated model has all properties resolved)
+<span class="fc" id="L120">            var propertyValue = project.getModel().getProperties().getProperty(propertyName);</span>
+
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            if (propertyValue != null) {</span>
+<span class="fc" id="L123">                return propertyValue;</span>
+            }
+<span class="fc bfc" id="L125" title="All 2 branches covered.">            if (&quot;project.version&quot;.equals(propertyName)) {</span>
+<span class="fc" id="L126">                return project.getVersion();</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">            } else if (&quot;project.groupId&quot;.equals(propertyName)) {</span>
+<span class="fc" id="L128">                return project.getGroupId();</span>
+            }
+        }
+
+<span class="fc" id="L132">        return textOrPlaceholder;</span>
+    }
+
+    private Pom resolveBomParents(MavenProject start) {
+<span class="fc" id="L136">        List&lt;MavenProject&gt; projects = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L137">        Pom current = null;</span>
+
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        if (!start.hasParent()) {</span>
+<span class="fc" id="L140">            return mavenProjectToBom(start, checksumCalculator, null);</span>
+        }
+
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        while (start.hasParent()) {</span>
+<span class="nc" id="L144">            projects.add(start);</span>
+<span class="nc" id="L145">            start = start.getParent();</span>
+        }
+<span class="nc" id="L147">        projects.add(start);</span>
+
+<span class="nc" id="L149">        Collections.reverse(projects);</span>
+
+<span class="nc bnc" id="L151" title="All 2 branches missed.">        for (MavenProject project : projects) {</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">            if (current == null) {</span>
+<span class="nc" id="L153">                current = mavenProjectToBom(project, checksumCalculator, null);</span>
+            } else {
+<span class="nc" id="L155">                var bom = mavenProjectToBom(project, checksumCalculator, current);</span>
+<span class="nc" id="L156">                current = bom;</span>
+            }
+<span class="nc" id="L158">            var bomBoms = resolveForProject(project);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">            if (!bomBoms.isEmpty()) {</span>
+<span class="nc" id="L160">                current.setBoms(bomBoms);</span>
+            }
+<span class="nc" id="L162">        }</span>
+
+<span class="nc" id="L164">        return current;</span>
+    }
+
+    private static Pom mavenProjectToBom(
+            MavenProject project, AbstractChecksumCalculator checksumCalculator, Pom parent) {
+<span class="fc" id="L169">        var dependency = project.getModel();</span>
+
+<span class="fc" id="L171">        var repoInfo = checksumCalculator.getArtifactResolvedField(project.getArtifact());</span>
+<span class="fc" id="L172">        var checksum = checksumCalculator.calculateArtifactChecksum(project.getArtifact());</span>
+<span class="fc" id="L173">        var checksumAlgorithm = checksumCalculator.getChecksumAlgorithm();</span>
+
+<span class="fc" id="L175">        return new Pom(</span>
+<span class="fc" id="L176">                GroupId.of(dependency.getGroupId()),</span>
+<span class="fc" id="L177">                ArtifactId.of(dependency.getArtifactId()),</span>
+<span class="fc" id="L178">                VersionNumber.of(dependency.getVersion()),</span>
+                null,
+<span class="fc" id="L180">                repoInfo.getResolvedUrl(),</span>
+<span class="fc" id="L181">                repoInfo.getRepositoryId(),</span>
+                checksumAlgorithm,
+                checksum,
+                parent);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

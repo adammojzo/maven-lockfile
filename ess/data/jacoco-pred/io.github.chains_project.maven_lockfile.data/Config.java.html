@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Config.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">Config.java</span></div><h1>Config.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import io.github.chains_project.maven_lockfile.checksum.ChecksumModes;
+import io.github.chains_project.maven_lockfile.checksum.FileSystemChecksumCalculator;
+
+public class Config {
+
+    private final boolean includeMavenPlugins;
+    private final boolean allowValidationFailure;
+    private final boolean allowPomValidationFailure;
+    private final boolean allowMavenPluginValidationFailure;
+    private final boolean allowEnvironmentalValidationFailure;
+    private final boolean includeEnvironment;
+    private final boolean reduced;
+    private final String mavenLockfileVersion;
+    private final ChecksumModes checksumMode;
+    private final String checksumAlgorithm;
+    private final boolean includeBoms;
+    private final boolean allowBomValidationFailure;
+    private final boolean includeParentPom;
+    private final boolean allowParentPomValidationFailure;
+    private final boolean includeMavenExtensions;
+    private final boolean allowMavenExtensionsValidationFailure;
+    private final boolean hermetic;
+
+    public Config(
+            MavenPluginsInclusion includeMavenPlugins,
+            OnValidationFailure allowValidationFailure,
+            OnPomValidationFailure allowPomValidationFailure,
+            OnMavenPluginValidationFailure allowMavenPluginValidationFailure,
+            OnEnvironmentalValidationFailure allowEnvironmentalValidationFailure,
+            EnvironmentInclusion includeEnvironment,
+            ReductionState reduced,
+            String mavenLockfileVersion,
+            ChecksumModes checksumMode,
+            String checksumAlgorithm,
+            BomsInclusion includeBoms,
+            OnBomValidationFailure allowBomValidationFailure,
+            ParentPomInclusion includeParentPom,
+            OnParentPomValidationFailure allowParentPomValidationFailure,
+            MavenExtensionsInclusion includeMavenExtensions,
+            OnMavenExtensionsValidationFailure allowMavenExtensionsValidationFailure,
+<span class="fc" id="L43">            HermeticInclusion hermetic) {</span>
+<span class="fc" id="L44">        this.includeMavenPlugins = includeMavenPlugins.equals(MavenPluginsInclusion.Include);</span>
+<span class="fc" id="L45">        this.allowValidationFailure = allowValidationFailure.equals(OnValidationFailure.Warn);</span>
+<span class="fc" id="L46">        this.allowPomValidationFailure = allowPomValidationFailure.equals(OnPomValidationFailure.Warn);</span>
+<span class="fc" id="L47">        this.allowMavenPluginValidationFailure =</span>
+<span class="fc" id="L48">                allowMavenPluginValidationFailure.equals(OnMavenPluginValidationFailure.Warn);</span>
+<span class="fc" id="L49">        this.allowEnvironmentalValidationFailure =</span>
+<span class="fc" id="L50">                allowEnvironmentalValidationFailure.equals(OnEnvironmentalValidationFailure.Warn);</span>
+<span class="fc" id="L51">        this.includeEnvironment = includeEnvironment.equals(EnvironmentInclusion.Include);</span>
+<span class="fc" id="L52">        this.reduced = reduced.equals(ReductionState.Reduced);</span>
+<span class="fc" id="L53">        this.mavenLockfileVersion = mavenLockfileVersion;</span>
+<span class="fc" id="L54">        this.checksumMode = checksumMode;</span>
+<span class="fc" id="L55">        this.checksumAlgorithm = checksumAlgorithm;</span>
+<span class="fc" id="L56">        this.includeBoms = includeBoms.equals(BomsInclusion.Include);</span>
+<span class="fc" id="L57">        this.allowBomValidationFailure = allowBomValidationFailure.equals(OnBomValidationFailure.Warn);</span>
+<span class="fc" id="L58">        this.includeParentPom = includeParentPom.equals(ParentPomInclusion.Include);</span>
+<span class="fc" id="L59">        this.allowParentPomValidationFailure =</span>
+<span class="fc" id="L60">                allowParentPomValidationFailure.equals(OnParentPomValidationFailure.Warn);</span>
+<span class="fc" id="L61">        this.includeMavenExtensions = includeMavenExtensions.equals(MavenExtensionsInclusion.Include);</span>
+<span class="fc" id="L62">        this.allowMavenExtensionsValidationFailure =</span>
+<span class="fc" id="L63">                allowMavenExtensionsValidationFailure.equals(OnMavenExtensionsValidationFailure.Warn);</span>
+<span class="fc" id="L64">        this.hermetic = hermetic.equals(HermeticInclusion.Include);</span>
+<span class="fc" id="L65">    }</span>
+
+<span class="nc" id="L67">    public Config() {</span>
+<span class="nc" id="L68">        this.includeMavenPlugins = true;</span>
+<span class="nc" id="L69">        this.allowValidationFailure = false;</span>
+<span class="nc" id="L70">        this.allowPomValidationFailure = false;</span>
+<span class="nc" id="L71">        this.allowMavenPluginValidationFailure = false;</span>
+<span class="nc" id="L72">        this.allowEnvironmentalValidationFailure = false;</span>
+<span class="nc" id="L73">        this.includeEnvironment = true;</span>
+<span class="nc" id="L74">        this.reduced = false;</span>
+<span class="nc" id="L75">        this.mavenLockfileVersion = &quot;1&quot;;</span>
+<span class="nc" id="L76">        this.checksumMode = ChecksumModes.LOCAL;</span>
+<span class="nc" id="L77">        this.checksumAlgorithm = new FileSystemChecksumCalculator(null, null, null, null).getDefaultChecksumAlgorithm();</span>
+<span class="nc" id="L78">        this.includeBoms = false;</span>
+<span class="nc" id="L79">        this.allowBomValidationFailure = false;</span>
+<span class="nc" id="L80">        this.includeParentPom = false;</span>
+<span class="nc" id="L81">        this.allowParentPomValidationFailure = false;</span>
+<span class="nc" id="L82">        this.includeMavenExtensions = false;</span>
+<span class="nc" id="L83">        this.allowMavenExtensionsValidationFailure = false;</span>
+<span class="nc" id="L84">        this.hermetic = false;</span>
+<span class="nc" id="L85">    }</span>
+    /**
+     * @return the includeMavenPlugins
+     */
+    public boolean isIncludeMavenPlugins() {
+<span class="nc" id="L90">        return includeMavenPlugins;</span>
+    }
+    /**
+     * @return the mavenPluginsInclusion enum
+     */
+    public MavenPluginsInclusion getMavenPluginsInclusion() {
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        return includeMavenPlugins ? MavenPluginsInclusion.Include : MavenPluginsInclusion.Exclude;</span>
+    }
+    /**
+     * @return the allowValidationFailure
+     */
+    public boolean isAllowValidationFailure() {
+<span class="nc" id="L102">        return allowValidationFailure;</span>
+    }
+    /**
+     * @return the onValidationFailure enum
+     */
+    public OnValidationFailure getOnValidationFailure() {
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        return allowValidationFailure ? OnValidationFailure.Warn : OnValidationFailure.Error;</span>
+    }
+    /**
+     * @return the allowPomValidationFailure
+     */
+    public boolean isAllowPomValidationFailure() {
+<span class="nc" id="L114">        return allowPomValidationFailure;</span>
+    }
+    /**
+     * @return the onPomValidationFailure enum
+     */
+    public OnPomValidationFailure getOnPomValidationFailure() {
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">        return allowPomValidationFailure ? OnPomValidationFailure.Warn : OnPomValidationFailure.Error;</span>
+    }
+
+    public boolean isAllowMavenPluginValidationFailure() {
+<span class="nc" id="L124">        return allowMavenPluginValidationFailure;</span>
+    }
+
+    public OnMavenPluginValidationFailure getOnMavenPluginValidationFailure() {
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        return allowMavenPluginValidationFailure</span>
+<span class="nc" id="L129">                ? OnMavenPluginValidationFailure.Warn</span>
+<span class="fc" id="L130">                : OnMavenPluginValidationFailure.Error;</span>
+    }
+
+    /**
+     * @return the allowEnvironmentalValidationFailure
+     */
+    public boolean isAllowEnvironmentalValidationFailure() {
+<span class="nc" id="L137">        return allowEnvironmentalValidationFailure;</span>
+    }
+    /**
+     * @return the onEnvironmentalValidationFailure enum
+     */
+    public OnEnvironmentalValidationFailure getOnEnvironmentalValidationFailure() {
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        return allowEnvironmentalValidationFailure</span>
+<span class="fc" id="L144">                ? OnEnvironmentalValidationFailure.Warn</span>
+<span class="fc" id="L145">                : OnEnvironmentalValidationFailure.Error;</span>
+    }
+    /**
+     * @return the includeEnvironment
+     */
+    public boolean isIncludeEnvironment() {
+<span class="nc" id="L151">        return includeEnvironment;</span>
+    }
+    /**
+     * @return the environmentInclusion enum
+     */
+    public EnvironmentInclusion getEnvironmentInclusion() {
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">        return includeEnvironment ? EnvironmentInclusion.Include : EnvironmentInclusion.Exclude;</span>
+    }
+    /**
+     * @return the reduced
+     */
+    public boolean isReduced() {
+<span class="nc" id="L163">        return reduced;</span>
+    }
+    /**
+     * @return the reduced enum
+     */
+    public ReductionState getReductionState() {
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">        return reduced ? ReductionState.Reduced : ReductionState.NonReduced;</span>
+    }
+    /**
+     * @return the mavenLockfileVersion
+     */
+    public String getMavenLockfileVersion() {
+<span class="fc" id="L175">        return mavenLockfileVersion;</span>
+    }
+    /**
+     * @return the checksumMode
+     */
+    public ChecksumModes getChecksumMode() {
+<span class="fc" id="L181">        return checksumMode;</span>
+    }
+    /**
+     * @return the checksumAlgorithm
+     */
+    public String getChecksumAlgorithm() {
+<span class="fc" id="L187">        return checksumAlgorithm;</span>
+    }
+
+    public boolean isIncludeBoms() {
+<span class="nc" id="L191">        return includeBoms;</span>
+    }
+
+    public BomsInclusion getBomsInclusion() {
+<span class="fc bfc" id="L195" title="All 2 branches covered.">        return includeBoms ? BomsInclusion.Include : BomsInclusion.Exclude;</span>
+    }
+
+    public boolean isAllowBomValidationFailure() {
+<span class="nc" id="L199">        return allowBomValidationFailure;</span>
+    }
+
+    public OnBomValidationFailure getOnBomValidationFailure() {
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">        return allowBomValidationFailure ? OnBomValidationFailure.Warn : OnBomValidationFailure.Error;</span>
+    }
+
+    public boolean isIncludeParentPom() {
+<span class="nc" id="L207">        return includeParentPom;</span>
+    }
+
+    public ParentPomInclusion getParentPomInclusion() {
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        return includeParentPom ? ParentPomInclusion.Include : ParentPomInclusion.Exclude;</span>
+    }
+
+    public boolean isAllowParentPomValidationFailure() {
+<span class="nc" id="L215">        return allowParentPomValidationFailure;</span>
+    }
+
+    public OnParentPomValidationFailure getOnParentPomValidationFailure() {
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">        return allowParentPomValidationFailure ? OnParentPomValidationFailure.Warn : OnParentPomValidationFailure.Error;</span>
+    }
+
+    public boolean isIncludeMavenExtensions() {
+<span class="nc" id="L223">        return includeMavenExtensions;</span>
+    }
+
+    public MavenExtensionsInclusion getMavenExtensionsInclusion() {
+<span class="fc bfc" id="L227" title="All 2 branches covered.">        return includeMavenExtensions ? MavenExtensionsInclusion.Include : MavenExtensionsInclusion.Exclude;</span>
+    }
+
+    public boolean isAllowMavenExtensionsValidationFailure() {
+<span class="nc" id="L231">        return allowMavenExtensionsValidationFailure;</span>
+    }
+
+    public OnMavenExtensionsValidationFailure getOnMavenExtensionsValidationFailure() {
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        return allowMavenExtensionsValidationFailure</span>
+<span class="nc" id="L236">                ? OnMavenExtensionsValidationFailure.Warn</span>
+<span class="fc" id="L237">                : OnMavenExtensionsValidationFailure.Error;</span>
+    }
+
+    /**
+     * @return whether artifacts dynamically resolved during a real build (e.g. Surefire's
+     *     test-framework provider), and captured by a {@code DynamicResolutionSpy} extension
+     *     attached to that build, are merged into the lockfile.
+     */
+    public boolean isHermetic() {
+<span class="nc" id="L246">        return hermetic;</span>
+    }
+
+    public HermeticInclusion getHermeticInclusion() {
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">        return hermetic ? HermeticInclusion.Include : HermeticInclusion.Exclude;</span>
+    }
+
+<span class="fc" id="L253">    public enum MavenPluginsInclusion {</span>
+<span class="fc" id="L254">        Include,</span>
+<span class="fc" id="L255">        Exclude</span>
+    }
+
+<span class="fc" id="L258">    public enum OnValidationFailure {</span>
+<span class="fc" id="L259">        Warn,</span>
+<span class="fc" id="L260">        Error</span>
+    }
+
+<span class="fc" id="L263">    public enum OnPomValidationFailure {</span>
+<span class="fc" id="L264">        Warn,</span>
+<span class="fc" id="L265">        Error</span>
+    }
+
+<span class="fc" id="L268">    public enum OnMavenPluginValidationFailure {</span>
+<span class="fc" id="L269">        Warn,</span>
+<span class="fc" id="L270">        Error</span>
+    }
+
+<span class="fc" id="L273">    public enum OnEnvironmentalValidationFailure {</span>
+<span class="fc" id="L274">        Warn,</span>
+<span class="fc" id="L275">        Error</span>
+    }
+
+<span class="fc" id="L278">    public enum EnvironmentInclusion {</span>
+<span class="fc" id="L279">        Include,</span>
+<span class="fc" id="L280">        Exclude</span>
+    }
+
+<span class="fc" id="L283">    public enum ReductionState {</span>
+<span class="fc" id="L284">        Reduced,</span>
+<span class="fc" id="L285">        NonReduced</span>
+    }
+
+<span class="fc" id="L288">    public enum BomsInclusion {</span>
+<span class="fc" id="L289">        Include,</span>
+<span class="fc" id="L290">        Exclude</span>
+    }
+
+<span class="fc" id="L293">    public enum OnBomValidationFailure {</span>
+<span class="fc" id="L294">        Warn,</span>
+<span class="fc" id="L295">        Error</span>
+    }
+
+<span class="fc" id="L298">    public enum ParentPomInclusion {</span>
+<span class="fc" id="L299">        Include,</span>
+<span class="fc" id="L300">        Exclude</span>
+    }
+
+<span class="fc" id="L303">    public enum OnParentPomValidationFailure {</span>
+<span class="fc" id="L304">        Warn,</span>
+<span class="fc" id="L305">        Error</span>
+    }
+
+<span class="fc" id="L308">    public enum MavenExtensionsInclusion {</span>
+<span class="fc" id="L309">        Include,</span>
+<span class="fc" id="L310">        Exclude</span>
+    }
+
+<span class="fc" id="L313">    public enum OnMavenExtensionsValidationFailure {</span>
+<span class="fc" id="L314">        Warn,</span>
+<span class="fc" id="L315">        Error</span>
+    }
+
+<span class="fc" id="L318">    public enum HermeticInclusion {</span>
+<span class="fc" id="L319">        Include,</span>
+<span class="fc" id="L320">        Exclude</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

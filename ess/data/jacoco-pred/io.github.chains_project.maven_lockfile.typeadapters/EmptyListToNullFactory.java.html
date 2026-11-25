@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EmptyListToNullFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.typeadapters</a> &gt; <span class="el_source">EmptyListToNullFactory.java</span></div><h1>EmptyListToNullFactory.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.typeadapters;
+
+import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
+import com.google.gson.TypeAdapterFactory;
+import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+import java.io.IOException;
+import java.util.List;
+
+public class EmptyListToNullFactory implements TypeAdapterFactory {
+    // Used as workaround for https://github.com/google/gson/issues/1028
+    private final boolean wasCreatedByJsonAdapter;
+
+<span class="nc" id="L17">    public static final EmptyListToNullFactory INSTANCE = new EmptyListToNullFactory(false);</span>
+
+<span class="nc" id="L19">    private EmptyListToNullFactory(boolean wasCreatedByJsonAdapter) {</span>
+<span class="nc" id="L20">        this.wasCreatedByJsonAdapter = wasCreatedByJsonAdapter;</span>
+<span class="nc" id="L21">    }</span>
+
+    /**
+     * @deprecated
+     *      Only intended to be called by Gson when used for {@link JsonAdapter}.
+     */
+    @Deprecated
+    private EmptyListToNullFactory() {
+<span class="nc" id="L29">        this(true);</span>
+<span class="nc" id="L30">    }</span>
+
+    @Override
+    public &lt;T&gt; TypeAdapter&lt;T&gt; create(Gson gson, TypeToken&lt;T&gt; type) {
+<span class="nc" id="L34">        Class&lt;?&gt; rawType = type.getRawType();</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        if (!List.class.isAssignableFrom(rawType)) {</span>
+<span class="nc" id="L36">            return null;</span>
+        }
+
+        // Safe; the check above made sure type is List
+        @SuppressWarnings(&quot;unchecked&quot;)
+        TypeAdapter&lt;List&lt;Object&gt;&gt; delegate = (TypeAdapter&lt;List&lt;Object&gt;&gt;)
+<span class="nc bnc" id="L42" title="All 2 branches missed.">                (wasCreatedByJsonAdapter ? gson.getAdapter(type) : gson.getDelegateAdapter(this, type));</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L45">        TypeAdapter&lt;T&gt; adapter = (TypeAdapter&lt;T&gt;) new TypeAdapter&lt;List&lt;Object&gt;&gt;() {</span>
+            @Override
+            public List&lt;Object&gt; read(JsonReader in) throws IOException {
+<span class="nc" id="L48">                return delegate.read(in);</span>
+            }
+
+            @Override
+            public void write(JsonWriter out, List&lt;Object&gt; value) throws IOException {
+<span class="nc bnc" id="L53" title="All 4 branches missed.">                if (value == null || value.isEmpty()) {</span>
+                    // Call the delegate instead of directly writing null in case the delegate has
+                    // special null handling
+<span class="nc" id="L56">                    delegate.write(out, null);</span>
+                } else {
+<span class="nc" id="L58">                    delegate.write(out, value);</span>
+                }
+<span class="nc" id="L60">            }</span>
+        };
+<span class="nc" id="L62">        return adapter;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,34 @@
+== jdk.SocketRead (>=10ms): 0 events, total 0.0 s blocked in socket reads
+
+== jdk.ExecutionSample: 521 CPU samples
+   top self frames:
+    26.1%  java.lang.invoke.VarHandleByteArrayAsInts$ArrayHandle.index
+     4.2%  org.codehaus.plexus.util.xml.pull.MXParser.nextImpl
+     2.9%  java.util.concurrent.ConcurrentHashMap.transfer
+     2.7%  org.codehaus.plexus.util.xml.pull.MXParser.parseStartTag
+     2.1%  com.sun.crypto.provider.GHASH.processBlocks
+     1.9%  java.util.HashMap.getNode
+     1.5%  java.util.concurrent.ConcurrentHashMap.putVal
+     1.3%  java.util.HashMap.putVal
+     1.3%  org.codehaus.plexus.util.xml.pull.MXParser.getText
+     1.2%  java.util.HashMap.put
+   plugin methods (inclusive):
+    49.7%  LockFileFacade.generateLockFileFromProject
+    49.7%  GenerateLockFileMojo.execute
+    44.5%  resolvers.ProjectBuilder.buildFromGav
+    44.1%  resolvers.ProjectBuilder.buildProjectFromPomFile
+    42.2%  LockFileFacade.getAllPlugins
+    42.2%  LockFileFacade.lambda$resolveParentsAndBomsForDependencies$9
+    42.2%  LockFileFacade$$Lambda.accept
+    42.0%  LockFileFacade.resolveParentsAndBomsForDependencies
+    34.9%  LockFileFacade.resolveComponentDependencies
+    31.3%  checksum.RemoteChecksumCalculator.calculateChecksumInternal
+    30.9%  checksum.RemoteChecksumCalculator.calculateArtifactChecksum
+    29.0%  checksum.RemoteChecksumCalculator.lambda$prewarmArtifactCache$2
+== jdk.ExecutionSample under buildProjectFromPomFile: 230 of 521
+      181  (0.0s)  DefaultModelBuilder.build (model only)
+       37  (0.0s)  DefaultProjectBuilder.resolveDependencies (dependency resolution)
+       12  (0.0s)  other
+== jdk.SocketRead under buildProjectFromPomFile: 0 of 0
+== callers of VarHandleByteArrayAsInts hot frame
+     136 java.lang.invoke.VarHandleByteArrayAsInts$ArrayHandle.get <- java.lang.invoke.VarHandleGuards.guard_LI_I <- sun.security.provider.ByteArrayAccess.b2iBig64 <- sun.security.provider.SHA.implCompress0

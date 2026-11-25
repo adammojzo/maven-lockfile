@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractLockfileMojo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile</a> &gt; <span class="el_source">AbstractLockfileMojo.java</span></div><h1>AbstractLockfileMojo.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile;
+
+import com.google.common.base.Strings;
+import io.github.chains_project.maven_lockfile.checksum.AbstractChecksumCalculator;
+import io.github.chains_project.maven_lockfile.checksum.ChecksumModes;
+import io.github.chains_project.maven_lockfile.checksum.FileSystemChecksumCalculator;
+import io.github.chains_project.maven_lockfile.checksum.RemoteChecksumCalculator;
+import io.github.chains_project.maven_lockfile.data.Config;
+import io.github.chains_project.maven_lockfile.data.Environment;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.shared.dependency.graph.DependencyCollectorBuilder;
+import org.apache.maven.shared.transfer.dependencies.resolve.DependencyResolver;
+import org.eclipse.aether.RepositorySystem;
+
+<span class="fc" id="L23">public abstract class AbstractLockfileMojo extends AbstractMojo {</span>
+
+    /**
+     * The Maven project for which we are generating a lock file.
+     */
+    @Parameter(defaultValue = &quot;${project}&quot;, readonly = true, required = true)
+    protected MavenProject project;
+
+    @Parameter(defaultValue = &quot;${session}&quot;, readonly = true, required = true)
+    protected MavenSession session;
+
+    /**
+     * The dependency collector builder to use.
+     */
+    @Component(hint = &quot;default&quot;)
+    protected DependencyCollectorBuilder dependencyCollectorBuilder;
+
+    @Component
+    protected DependencyResolver dependencyResolver;
+
+    @Component
+    protected RepositorySystem repositorySystem;
+
+    @Parameter(property = &quot;includeMavenPlugins&quot;)
+    protected Boolean includeMavenPlugins;
+
+    @Parameter(property = &quot;allowValidationFailure&quot;)
+    protected Boolean allowValidationFailure;
+
+    @Parameter(property = &quot;allowPomValidationFailure&quot;)
+    protected Boolean allowPomValidationFailure;
+
+    @Parameter(property = &quot;allowMavenPluginValidationFailure&quot;)
+    protected Boolean allowMavenPluginValidationFailure;
+
+    // For CI with GitHub Actions, set to true; runner environments (Maven version, OS) can change between updates and
+    // are not fully controllable.
+    @Parameter(property = &quot;allowEnvironmentalValidationFailure&quot;)
+    protected Boolean allowEnvironmentalValidationFailure;
+
+    @Parameter(property = &quot;includeEnvironment&quot;)
+    protected Boolean includeEnvironment;
+
+    @Parameter(property = &quot;includeBoms&quot;)
+    protected Boolean includeBoms;
+
+    @Parameter(property = &quot;allowBomValidationFailure&quot;)
+    protected Boolean allowBomValidationFailure;
+
+    @Parameter(property = &quot;includeParentPom&quot;)
+    protected Boolean includeParentPom;
+
+    @Parameter(property = &quot;allowParentPomValidationFailure&quot;)
+    protected Boolean allowParentPomValidationFailure;
+
+    @Parameter(property = &quot;includeMavenExtensions&quot;)
+    protected Boolean includeMavenExtensions;
+
+    @Parameter(property = &quot;allowMavenExtensionsValidationFailure&quot;)
+    protected Boolean allowMavenExtensionsValidationFailure;
+
+    @Parameter(property = &quot;hermetic&quot;)
+    protected Boolean hermetic;
+
+    @Parameter(defaultValue = &quot;${maven.version}&quot;)
+    protected String mavenVersion;
+
+    @Parameter(defaultValue = &quot;${java.version}&quot;)
+    protected String javaVersion;
+
+    @Parameter(property = &quot;checksumAlgorithm&quot;)
+    protected String checksumAlgorithm;
+
+    @Parameter(defaultValue = &quot;remote&quot;, property = &quot;checksumMode&quot;)
+    protected String checksumMode;
+
+    @Parameter(defaultValue = &quot;false&quot;, property = &quot;reduced&quot;)
+    protected boolean reduced;
+
+    @Parameter(defaultValue = &quot;false&quot;, property = &quot;skip&quot;)
+    protected boolean skip;
+
+    @Parameter(defaultValue = &quot;lockfile.json&quot;, property = &quot;lockfileName&quot;)
+    protected String lockfileName;
+
+    @Parameter(defaultValue = &quot;${mojoExecution}&quot;, readonly = true)
+    protected MojoExecution mojo;
+
+    protected Environment generateMetaInformation() {
+<span class="nc" id="L112">        String osName = System.getProperty(&quot;os.name&quot;);</span>
+<span class="nc" id="L113">        return new Environment(osName, mavenVersion, javaVersion);</span>
+    }
+
+    protected AbstractChecksumCalculator getChecksumCalculator() throws MojoExecutionException {
+<span class="nc" id="L117">        ProjectBuildingRequest artifactBuildingRequest = newResolveArtifactProjectBuildingRequest();</span>
+<span class="nc" id="L118">        ProjectBuildingRequest pluginBuildingRequest = newResolvePluginProjectBuildingRequest();</span>
+
+<span class="nc" id="L120">        ChecksumModes checksumModeEnum = ChecksumModes.fromName(checksumMode);</span>
+
+<span class="nc bnc" id="L122" title="All 3 branches missed.">        switch (checksumModeEnum) {</span>
+            case LOCAL:
+<span class="nc" id="L124">                return new FileSystemChecksumCalculator(</span>
+                        dependencyResolver, artifactBuildingRequest, pluginBuildingRequest, checksumAlgorithm);
+            case REMOTE:
+<span class="nc" id="L127">                return new RemoteChecksumCalculator(checksumAlgorithm, artifactBuildingRequest, pluginBuildingRequest);</span>
+            default:
+<span class="nc" id="L129">                throw new MojoExecutionException(&quot;Invalid checksum mode: &quot; + checksumMode);</span>
+        }
+    }
+
+    protected AbstractChecksumCalculator getChecksumCalculator(Config config) throws MojoExecutionException {
+<span class="nc" id="L134">        return getChecksumCalculator(config, false);</span>
+    }
+
+    protected AbstractChecksumCalculator getChecksumCalculator(Config config, boolean forceLocalChecksumMode)
+            throws MojoExecutionException {
+<span class="nc" id="L139">        ProjectBuildingRequest artifactBuildingRequest = newResolveArtifactProjectBuildingRequest();</span>
+<span class="nc" id="L140">        ProjectBuildingRequest pluginBuildingRequest = newResolvePluginProjectBuildingRequest();</span>
+
+<span class="nc" id="L142">        ChecksumModes checksumModeEnum = config.getChecksumMode();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (forceLocalChecksumMode) {</span>
+<span class="nc" id="L144">            checksumModeEnum = ChecksumModes.LOCAL;</span>
+        }
+
+<span class="nc bnc" id="L147" title="All 3 branches missed.">        switch (checksumModeEnum) {</span>
+            case LOCAL:
+<span class="nc" id="L149">                return new FileSystemChecksumCalculator(</span>
+                        dependencyResolver,
+                        artifactBuildingRequest,
+                        pluginBuildingRequest,
+<span class="nc" id="L153">                        config.getChecksumAlgorithm());</span>
+            case REMOTE:
+<span class="nc" id="L155">                return new RemoteChecksumCalculator(</span>
+<span class="nc" id="L156">                        config.getChecksumAlgorithm(), artifactBuildingRequest, pluginBuildingRequest);</span>
+            default:
+<span class="nc" id="L158">                throw new MojoExecutionException(&quot;Invalid checksum mode: &quot; + checksumModeEnum);</span>
+        }
+    }
+
+    protected Config getConfig() {
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        String chosenChecksumAlgorithm = Strings.isNullOrEmpty(checksumAlgorithm) ? &quot;SHA-256&quot; : checksumAlgorithm;</span>
+        ChecksumModes chosenChecksumMode =
+<span class="nc bnc" id="L165" title="All 2 branches missed.">                Strings.isNullOrEmpty(checksumMode) ? ChecksumModes.LOCAL : ChecksumModes.fromName(checksumMode);</span>
+        // includeMavenPlugins defaults to true when not explicitly set
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        Config.MavenPluginsInclusion mavenPluginsInclusion = Boolean.FALSE.equals(includeMavenPlugins)</span>
+<span class="nc" id="L168">                ? Config.MavenPluginsInclusion.Exclude</span>
+<span class="nc" id="L169">                : Config.MavenPluginsInclusion.Include;</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        Config.OnValidationFailure onValidationFailure = Boolean.TRUE.equals(allowValidationFailure)</span>
+<span class="nc" id="L171">                ? Config.OnValidationFailure.Warn</span>
+<span class="nc" id="L172">                : Config.OnValidationFailure.Error;</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        Config.OnPomValidationFailure onPomValidationFailure = Boolean.TRUE.equals(allowPomValidationFailure)</span>
+<span class="nc" id="L174">                ? Config.OnPomValidationFailure.Warn</span>
+<span class="nc" id="L175">                : Config.OnPomValidationFailure.Error;</span>
+        Config.OnMavenPluginValidationFailure onMavenPluginValidationFailure =
+<span class="nc bnc" id="L177" title="All 2 branches missed.">                Boolean.TRUE.equals(allowMavenPluginValidationFailure)</span>
+<span class="nc" id="L178">                        ? Config.OnMavenPluginValidationFailure.Warn</span>
+<span class="nc" id="L179">                        : Config.OnMavenPluginValidationFailure.Error;</span>
+        Config.OnEnvironmentalValidationFailure onEnvironmentalValidationFailure =
+<span class="nc bnc" id="L181" title="All 2 branches missed.">                Boolean.TRUE.equals(allowEnvironmentalValidationFailure)</span>
+<span class="nc" id="L182">                        ? Config.OnEnvironmentalValidationFailure.Warn</span>
+<span class="nc" id="L183">                        : Config.OnEnvironmentalValidationFailure.Error;</span>
+        // includeEnvironment defaults to true when not explicitly set
+<span class="nc bnc" id="L185" title="All 2 branches missed.">        Config.EnvironmentInclusion environmentInclusion = Boolean.FALSE.equals(includeEnvironment)</span>
+<span class="nc" id="L186">                ? Config.EnvironmentInclusion.Exclude</span>
+<span class="nc" id="L187">                : Config.EnvironmentInclusion.Include;</span>
+        Config.ReductionState reductionState =
+<span class="nc bnc" id="L189" title="All 2 branches missed.">                reduced ? Config.ReductionState.Reduced : Config.ReductionState.NonReduced;</span>
+        // include* flags default to true when not explicitly set
+        Config.BomsInclusion bomsInclusion =
+<span class="nc bnc" id="L192" title="All 2 branches missed.">                Boolean.FALSE.equals(includeBoms) ? Config.BomsInclusion.Exclude : Config.BomsInclusion.Include;</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        Config.OnBomValidationFailure onBomValidationFailure = Boolean.TRUE.equals(allowBomValidationFailure)</span>
+<span class="nc" id="L194">                ? Config.OnBomValidationFailure.Warn</span>
+<span class="nc" id="L195">                : Config.OnBomValidationFailure.Error;</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        Config.ParentPomInclusion parentPomInclusion = Boolean.FALSE.equals(includeParentPom)</span>
+<span class="nc" id="L197">                ? Config.ParentPomInclusion.Exclude</span>
+<span class="nc" id="L198">                : Config.ParentPomInclusion.Include;</span>
+        Config.OnParentPomValidationFailure onParentPomValidationFailure =
+<span class="nc bnc" id="L200" title="All 2 branches missed.">                Boolean.TRUE.equals(allowParentPomValidationFailure)</span>
+<span class="nc" id="L201">                        ? Config.OnParentPomValidationFailure.Warn</span>
+<span class="nc" id="L202">                        : Config.OnParentPomValidationFailure.Error;</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        Config.MavenExtensionsInclusion mavenExtensionsInclusion = Boolean.FALSE.equals(includeMavenExtensions)</span>
+<span class="nc" id="L204">                ? Config.MavenExtensionsInclusion.Exclude</span>
+<span class="nc" id="L205">                : Config.MavenExtensionsInclusion.Include;</span>
+        Config.OnMavenExtensionsValidationFailure onMavenExtensionsValidationFailure =
+<span class="nc bnc" id="L207" title="All 2 branches missed.">                Boolean.TRUE.equals(allowMavenExtensionsValidationFailure)</span>
+<span class="nc" id="L208">                        ? Config.OnMavenExtensionsValidationFailure.Warn</span>
+<span class="nc" id="L209">                        : Config.OnMavenExtensionsValidationFailure.Error;</span>
+        // hermetic defaults to false (opt-in) when not explicitly set
+        Config.HermeticInclusion hermeticInclusion =
+<span class="nc bnc" id="L212" title="All 2 branches missed.">                Boolean.TRUE.equals(hermetic) ? Config.HermeticInclusion.Include : Config.HermeticInclusion.Exclude;</span>
+
+<span class="nc" id="L214">        return new Config(</span>
+                mavenPluginsInclusion,
+                onValidationFailure,
+                onPomValidationFailure,
+                onMavenPluginValidationFailure,
+                onEnvironmentalValidationFailure,
+                environmentInclusion,
+                reductionState,
+<span class="nc" id="L222">                mojo.getPlugin().getVersion(),</span>
+                chosenChecksumMode,
+                chosenChecksumAlgorithm,
+                bomsInclusion,
+                onBomValidationFailure,
+                parentPomInclusion,
+                onParentPomValidationFailure,
+                mavenExtensionsInclusion,
+                onMavenExtensionsValidationFailure,
+                hermeticInclusion);
+    }
+
+    protected ProjectBuildingRequest newResolveArtifactProjectBuildingRequest() throws MojoExecutionException {
+<span class="nc" id="L235">        ProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());</span>
+<span class="nc" id="L236">        buildingRequest.setRemoteRepositories(project.getRemoteArtifactRepositories());</span>
+<span class="nc" id="L237">        return buildingRequest;</span>
+    }
+
+    protected ProjectBuildingRequest newResolvePluginProjectBuildingRequest() throws MojoExecutionException {
+<span class="nc" id="L241">        ProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());</span>
+<span class="nc" id="L242">        buildingRequest.setRemoteRepositories(project.getPluginArtifactRepositories());</span>
+<span class="nc" id="L243">        return buildingRequest;</span>
+    }
+
+    /**
+     * Returns a Config that starts from {@code base} (typically the stored lockfile config) and overrides
+     * only the fields that were explicitly set via CLI or pom.xml configuration (non-null). When a flag
+     * is null (not explicitly set), the stored value from the lockfile config is preserved.
+     */
+    protected Config mergeConfigWithCliArgs(Config base) {
+        ChecksumModes chosenChecksumMode =
+<span class="fc bfc" id="L253" title="All 2 branches covered.">                Strings.isNullOrEmpty(checksumMode) ? base.getChecksumMode() : ChecksumModes.fromName(checksumMode);</span>
+        String chosenChecksumAlgorithm =
+<span class="fc bfc" id="L255" title="All 2 branches covered.">                Strings.isNullOrEmpty(checksumAlgorithm) ? base.getChecksumAlgorithm() : checksumAlgorithm;</span>
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">        Config.MavenPluginsInclusion pluginsInclusion = includeMavenPlugins != null</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">                ? (includeMavenPlugins ? Config.MavenPluginsInclusion.Include : Config.MavenPluginsInclusion.Exclude)</span>
+<span class="fc" id="L258">                : base.getMavenPluginsInclusion();</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">        Config.OnValidationFailure onValidationFailure = allowValidationFailure != null</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                ? (allowValidationFailure ? Config.OnValidationFailure.Warn : Config.OnValidationFailure.Error)</span>
+<span class="fc" id="L261">                : base.getOnValidationFailure();</span>
+<span class="pc bpc" id="L262" title="1 of 2 branches missed.">        Config.OnPomValidationFailure onPomValidationFailure = allowPomValidationFailure != null</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">                ? (allowPomValidationFailure ? Config.OnPomValidationFailure.Warn : Config.OnPomValidationFailure.Error)</span>
+<span class="fc" id="L264">                : base.getOnPomValidationFailure();</span>
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">        Config.OnMavenPluginValidationFailure onMavenPluginValidationFailure = allowMavenPluginValidationFailure != null</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">                ? (allowMavenPluginValidationFailure</span>
+<span class="nc" id="L267">                        ? Config.OnMavenPluginValidationFailure.Warn</span>
+<span class="nc" id="L268">                        : Config.OnMavenPluginValidationFailure.Error)</span>
+<span class="fc" id="L269">                : base.getOnMavenPluginValidationFailure();</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">        Config.OnEnvironmentalValidationFailure onEnvFailure = allowEnvironmentalValidationFailure != null</span>
+<span class="pc bpc" id="L271" title="1 of 2 branches missed.">                ? (allowEnvironmentalValidationFailure</span>
+<span class="fc" id="L272">                        ? Config.OnEnvironmentalValidationFailure.Warn</span>
+<span class="nc" id="L273">                        : Config.OnEnvironmentalValidationFailure.Error)</span>
+<span class="fc" id="L274">                : base.getOnEnvironmentalValidationFailure();</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">        Config.EnvironmentInclusion environmentInclusion = includeEnvironment != null</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">                ? (includeEnvironment ? Config.EnvironmentInclusion.Include : Config.EnvironmentInclusion.Exclude)</span>
+<span class="fc" id="L277">                : base.getEnvironmentInclusion();</span>
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">        Config.BomsInclusion bomsInclusion = includeBoms != null</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">                ? (includeBoms ? Config.BomsInclusion.Include : Config.BomsInclusion.Exclude)</span>
+<span class="fc" id="L280">                : base.getBomsInclusion();</span>
+<span class="pc bpc" id="L281" title="1 of 2 branches missed.">        Config.OnBomValidationFailure onBomValidationFailure = allowBomValidationFailure != null</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">                ? (allowBomValidationFailure ? Config.OnBomValidationFailure.Warn : Config.OnBomValidationFailure.Error)</span>
+<span class="fc" id="L283">                : base.getOnBomValidationFailure();</span>
+<span class="pc bpc" id="L284" title="1 of 2 branches missed.">        Config.ParentPomInclusion parentPomInclusion = includeParentPom != null</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">                ? (includeParentPom ? Config.ParentPomInclusion.Include : Config.ParentPomInclusion.Exclude)</span>
+<span class="fc" id="L286">                : base.getParentPomInclusion();</span>
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">        Config.OnParentPomValidationFailure onParentPomValidationFailure = allowParentPomValidationFailure != null</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">                ? (allowParentPomValidationFailure</span>
+<span class="nc" id="L289">                        ? Config.OnParentPomValidationFailure.Warn</span>
+<span class="nc" id="L290">                        : Config.OnParentPomValidationFailure.Error)</span>
+<span class="fc" id="L291">                : base.getOnParentPomValidationFailure();</span>
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">        Config.MavenExtensionsInclusion mavenExtensionsInclusion = includeMavenExtensions != null</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">                ? (includeMavenExtensions</span>
+<span class="nc" id="L294">                        ? Config.MavenExtensionsInclusion.Include</span>
+<span class="nc" id="L295">                        : Config.MavenExtensionsInclusion.Exclude)</span>
+<span class="fc" id="L296">                : base.getMavenExtensionsInclusion();</span>
+        Config.OnMavenExtensionsValidationFailure onMavenExtensionsValidationFailure =
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">                allowMavenExtensionsValidationFailure != null</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">                        ? (allowMavenExtensionsValidationFailure</span>
+<span class="nc" id="L300">                                ? Config.OnMavenExtensionsValidationFailure.Warn</span>
+<span class="nc" id="L301">                                : Config.OnMavenExtensionsValidationFailure.Error)</span>
+<span class="fc" id="L302">                        : base.getOnMavenExtensionsValidationFailure();</span>
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">        Config.HermeticInclusion hermeticInclusion = hermetic != null</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">                ? (hermetic ? Config.HermeticInclusion.Include : Config.HermeticInclusion.Exclude)</span>
+<span class="fc" id="L305">                : base.getHermeticInclusion();</span>
+<span class="fc" id="L306">        return new Config(</span>
+                pluginsInclusion,
+                onValidationFailure,
+                onPomValidationFailure,
+                onMavenPluginValidationFailure,
+                onEnvFailure,
+                environmentInclusion,
+<span class="fc" id="L313">                base.getReductionState(),</span>
+<span class="fc" id="L314">                base.getMavenLockfileVersion(),</span>
+                chosenChecksumMode,
+                chosenChecksumAlgorithm,
+                bomsInclusion,
+                onBomValidationFailure,
+                parentPomInclusion,
+                onParentPomValidationFailure,
+                mavenExtensionsInclusion,
+                onMavenExtensionsValidationFailure,
+                hermeticInclusion);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

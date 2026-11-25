@@ -1,0 +1,32 @@
+INSTRUCTION  before  37.5% (3731/9946)  after  56.2% (5606/9970)  delta +18.7 pp
+LINE         before  36.6% (815/2226)  after  55.9% (1248/2232)  delta +19.3 pp
+BRANCH       before  30.1% (327/1088)  after  43.3% (473/1092)  delta +13.3 pp
+METHOD       before  48.4% (212/438)  after  73.6% (324/440)  delta +25.2 pp
+
+maven_lockfile.FreezeDependencyMojo                     lines   0/120 -> 118/123  (  0.0% ->  95.9%)
+graph.DependencyGraph                                   lines   0/79  ->  78/79   (  0.0% ->  98.7%)
+data.Config                                             lines  44/79  ->  79/79   ( 55.7% -> 100.0%)
+resolvers.ProjectBuilder                                lines   5/53  ->  33/56   (  9.4% ->  58.9%)
+reporting.LockFileDifference                            lines   0/28  ->  28/28   (  0.0% -> 100.0%)
+graph.DependencyNode                                    lines  58/86  ->  77/86   ( 67.4% ->  89.5%)
+reporting.ValidationPhases.CorePhase                    lines   0/15  ->  15/15   (  0.0% -> 100.0%)
+checksum.AbstractChecksumCalculator                     lines   4/18  ->  17/18   ( 22.2% ->  94.4%)
+reporting.ValidationPhases.MavenPluginsPhase            lines   0/9   ->   9/9    (  0.0% -> 100.0%)
+reporting.ValidationPhases.ExtensionsPhase              lines   0/9   ->   9/9    (  0.0% -> 100.0%)
+maven_lockfile.LockFileEquality                         lines  68/77  ->  77/77   ( 88.3% -> 100.0%)
+maven_lockfile.JsonUtils                                lines  32/42  ->  41/42   ( 76.2% ->  97.6%)
+reporting.ValidationPhases.PomPhase                     lines   0/8   ->   8/8    (  0.0% -> 100.0%)
+reporting.ValidationPhases.EnvironmentPhase             lines   0/8   ->   8/8    (  0.0% -> 100.0%)
+internal.SpyingDependencyNodeUtils                      lines   0/11  ->   8/11   (  0.0% ->  72.7%)
+data.Environment                                        lines   5/18  ->  11/18   ( 27.8% ->  61.1%)
+data.Classifier                                         lines   2/15  ->   8/15   ( 13.3% ->  53.3%)
+reporting.ValidationPhases.ParentPomPhase               lines   0/5   ->   5/5    (  0.0% -> 100.0%)
+reporting.ValidationPhases.BomsPhase                    lines   0/5   ->   5/5    (  0.0% -> 100.0%)
+data.LockFile                                           lines  29/42  ->  34/42   ( 69.0% ->  81.0%)
+data.AbstractMavenComponent                             lines  44/49  ->  48/49   ( 89.8% ->  98.0%)
+reporting.PluginLogManager                              lines   3/5   ->   5/5    ( 60.0% -> 100.0%)
+graph.NodeId                                            lines  14/17  ->  16/17   ( 82.4% ->  94.1%)
+reporting.ValidationPhases                              lines   0/1   ->   1/1    (  0.0% -> 100.0%)
+maven_lockfile.LockFileFacade                           lines   0/397 ->   1/397  (  0.0% ->   0.3%)
+data.MetaData                                           lines   4/6   ->   5/6    ( 66.7% ->  83.3%)
+checksum.FileSystemChecksumCalculator                   lines  40/114 ->  41/114  ( 35.1% ->  36.0%)

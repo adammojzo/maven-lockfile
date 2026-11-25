@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Pom.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">Pom.java</span></div><h1>Pom.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import java.util.Objects;
+import java.util.Set;
+
+public class Pom implements Comparable&lt;Pom&gt; {
+
+    private final GroupId groupId;
+    private final ArtifactId artifactId;
+    private final VersionNumber version;
+    private final String relativePath;
+    // Intentionally excluded from equals/hashCode/compareTo: mirrors differ in URL but are equivalent.
+    private final ResolvedUrl resolved;
+    private final RepositoryId repositoryId;
+    private final String checksumAlgorithm;
+    private final String checksum;
+    private final Pom parent;
+    private Set&lt;Pom&gt; boms;
+
+    public Pom(
+            GroupId groupId,
+            ArtifactId artifactId,
+            VersionNumber version,
+            String relativePath,
+            ResolvedUrl resolved,
+            RepositoryId repositoryId,
+            String checksumAlgorithm,
+            String checksum,
+<span class="fc" id="L29">            Pom parent) {</span>
+<span class="fc" id="L30">        this.groupId = groupId;</span>
+<span class="fc" id="L31">        this.artifactId = artifactId;</span>
+<span class="fc" id="L32">        this.version = version;</span>
+<span class="fc" id="L33">        this.relativePath = relativePath;</span>
+<span class="fc" id="L34">        this.resolved = resolved;</span>
+<span class="fc" id="L35">        this.repositoryId = repositoryId;</span>
+<span class="fc" id="L36">        this.checksumAlgorithm = checksumAlgorithm;</span>
+<span class="fc" id="L37">        this.checksum = checksum;</span>
+<span class="fc" id="L38">        this.parent = parent;</span>
+<span class="fc" id="L39">    }</span>
+
+    public GroupId getGroupId() {
+<span class="fc" id="L42">        return groupId;</span>
+    }
+
+    public ArtifactId getArtifactId() {
+<span class="fc" id="L46">        return artifactId;</span>
+    }
+
+    public VersionNumber getVersion() {
+<span class="fc" id="L50">        return version;</span>
+    }
+
+    public String getRelativePath() {
+<span class="fc" id="L54">        return relativePath;</span>
+    }
+
+    public ResolvedUrl getResolved() {
+<span class="fc" id="L58">        return resolved;</span>
+    }
+
+    public RepositoryId getRepositoryId() {
+<span class="fc" id="L62">        return repositoryId;</span>
+    }
+
+    public String getChecksumAlgorithm() {
+<span class="fc" id="L66">        return checksumAlgorithm;</span>
+    }
+
+    public String getChecksum() {
+<span class="fc" id="L70">        return checksum;</span>
+    }
+
+    public Pom getParent() {
+<span class="fc" id="L74">        return parent;</span>
+    }
+
+    @Override
+    public int compareTo(Pom o) {
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">        if (this.groupId.compareTo(o.groupId) != 0) {</span>
+<span class="nc" id="L80">            return this.groupId.compareTo(o.groupId);</span>
+        }
+
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (this.artifactId.compareTo(o.artifactId) != 0) {</span>
+<span class="nc" id="L84">            return this.artifactId.compareTo(o.artifactId);</span>
+        }
+
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (this.version.compareTo(o.version) != 0) {</span>
+<span class="nc" id="L88">            return this.version.compareTo(o.version);</span>
+        }
+
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">        String pathCmp = this.relativePath == null ? &quot;&quot; : this.relativePath;</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">        String oPathCmp = o.relativePath == null ? &quot;&quot; : o.relativePath;</span>
+
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (pathCmp.compareTo(oPathCmp) != 0) {</span>
+<span class="nc" id="L95">            return pathCmp.compareTo(oPathCmp);</span>
+        }
+
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        RepositoryId repoIdCmp = this.repositoryId == null ? RepositoryId.None() : this.repositoryId;</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        RepositoryId oRepoIdCmp = o.repositoryId == null ? RepositoryId.None() : o.repositoryId;</span>
+
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        if (repoIdCmp.compareTo(oRepoIdCmp) != 0) {</span>
+<span class="nc" id="L102">            return repoIdCmp.compareTo(oRepoIdCmp);</span>
+        }
+
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        if (this.checksumAlgorithm.compareTo(o.checksumAlgorithm) != 0) {</span>
+<span class="nc" id="L106">            return this.checksumAlgorithm.compareTo(o.checksumAlgorithm);</span>
+        }
+
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (this.checksum.compareTo(o.checksum) != 0) {</span>
+<span class="nc" id="L110">            return this.checksum.compareTo(o.checksum);</span>
+        }
+
+<span class="pc bpc" id="L113" title="2 of 4 branches missed.">        if (this.parent == null &amp;&amp; o.parent != null) {</span>
+<span class="nc" id="L114">            return -1;</span>
+        }
+
+<span class="pc bpc" id="L117" title="3 of 4 branches missed.">        if (this.parent != null &amp;&amp; o.parent == null) {</span>
+<span class="nc" id="L118">            return 1;</span>
+        }
+
+<span class="pc bpc" id="L121" title="5 of 6 branches missed.">        if (this.parent != null &amp;&amp; o.parent != null &amp;&amp; this.parent.compareTo(o.parent) != 0) {</span>
+<span class="nc" id="L122">            return this.parent.compareTo(o.parent);</span>
+        }
+
+<span class="fc" id="L125">        return 0;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">        if (this == obj) {</span>
+<span class="nc" id="L131">            return true;</span>
+        }
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (!(obj instanceof Pom)) {</span>
+<span class="fc" id="L134">            return false;</span>
+        }
+<span class="fc" id="L136">        Pom other = (Pom) obj;</span>
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">        String pathCmp = this.relativePath == null ? &quot;&quot; : this.relativePath;</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        String otherPathCmp = other.relativePath == null ? &quot;&quot; : other.relativePath;</span>
+
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">        RepositoryId repoIdCmp = this.repositoryId == null ? RepositoryId.None() : this.repositoryId;</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        RepositoryId otherRepoIdCmp = other.repositoryId == null ? RepositoryId.None() : other.repositoryId;</span>
+
+<span class="pc bpc" id="L143" title="6 of 8 branches missed.">        boolean parentEqual = (this.parent == null &amp;&amp; other.parent == null)</span>
+<span class="pc bnc" id="L144" title="All 2 branches missed.">                || (this.parent != null &amp;&amp; other.parent != null &amp;&amp; this.parent.equals(other.parent));</span>
+
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        return this.groupId.equals(other.groupId)</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">                &amp;&amp; this.artifactId.equals(other.artifactId)</span>
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">                &amp;&amp; this.version.equals(other.version)</span>
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">                &amp;&amp; pathCmp.equals(otherPathCmp)</span>
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">                &amp;&amp; repoIdCmp.equals(otherRepoIdCmp)</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">                &amp;&amp; this.checksumAlgorithm.equals(other.checksumAlgorithm)</span>
+<span class="pc bpc" id="L152" title="1 of 4 branches missed.">                &amp;&amp; this.checksum.equals(other.checksum)</span>
+                &amp;&amp; parentEqual;
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L158">        return Objects.hash(</span>
+                groupId, artifactId, version, relativePath, repositoryId, checksumAlgorithm, checksum, parent);
+    }
+
+    public Set&lt;Pom&gt; getBoms() {
+<span class="fc" id="L163">        return boms;</span>
+    }
+
+    public void setBoms(Set&lt;Pom&gt; boms) {
+<span class="fc" id="L167">        this.boms = boms;</span>
+<span class="fc" id="L168">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

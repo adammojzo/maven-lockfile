@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileSystemChecksumCalculator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.checksum</a> &gt; <span class="el_source">FileSystemChecksumCalculator.java</span></div><h1>FileSystemChecksumCalculator.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.checksum;
+
+import com.google.common.io.BaseEncoding;
+import io.github.chains_project.maven_lockfile.data.RepositoryId;
+import io.github.chains_project.maven_lockfile.data.ResolvedUrl;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.stream.Collectors;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.shared.transfer.dependencies.resolve.DependencyResolver;
+
+public class FileSystemChecksumCalculator extends AbstractChecksumCalculator {
+
+    private final DependencyResolver resolver;
+    private final ProjectBuildingRequest artifactBuildingRequest;
+    private final ProjectBuildingRequest pluginBuildingRequest;
+
+    public FileSystemChecksumCalculator(
+            DependencyResolver resolver,
+            ProjectBuildingRequest artifactBuildingRequest,
+            ProjectBuildingRequest pluginBuildingRequest,
+            String checksumAlgorithm) {
+<span class="fc" id="L29">        super(checksumAlgorithm);</span>
+<span class="fc" id="L30">        this.resolver = resolver;</span>
+<span class="fc" id="L31">        this.artifactBuildingRequest = artifactBuildingRequest;</span>
+<span class="fc" id="L32">        this.pluginBuildingRequest = pluginBuildingRequest;</span>
+<span class="fc" id="L33">    }</span>
+
+    /**
+     * Create a dependency from an artifact. This is necessary because the API of the dependency resolver expects a dependency.
+     * @param node  The artifact to create a dependency from.
+     * @return  The dependency
+     */
+    private Dependency createDependency(Artifact node) {
+<span class="nc" id="L41">        Dependency dependency = new Dependency();</span>
+<span class="nc" id="L42">        dependency.setGroupId(node.getGroupId());</span>
+<span class="nc" id="L43">        dependency.setArtifactId(node.getArtifactId());</span>
+<span class="nc" id="L44">        dependency.setVersion(node.getVersion());</span>
+<span class="nc" id="L45">        dependency.setScope(node.getScope());</span>
+<span class="nc" id="L46">        dependency.setType(node.getType());</span>
+<span class="nc" id="L47">        dependency.setClassifier(node.getClassifier());</span>
+<span class="nc" id="L48">        dependency.setOptional(node.isOptional());</span>
+<span class="nc" id="L49">        return dependency;</span>
+    }
+
+    private Artifact resolveDependency(Artifact artifact, ProjectBuildingRequest buildingRequest) {
+        try {
+<span class="nc" id="L54">            return resolver.resolveDependencies(buildingRequest, List.of(createDependency(artifact)), null, null)</span>
+<span class="nc" id="L55">                    .iterator()</span>
+<span class="nc" id="L56">                    .next()</span>
+<span class="nc" id="L57">                    .getArtifact();</span>
+<span class="nc" id="L58">        } catch (Exception e) {</span>
+<span class="nc" id="L59">            PluginLogManager.getLog()</span>
+<span class="nc" id="L60">                    .warn(String.format(&quot;Could not resolve artifact: %s&quot;, artifact.getArtifactId()), e);</span>
+<span class="nc" id="L61">            return artifact;</span>
+        }
+    }
+
+    private Optional&lt;String&gt; calculateChecksumInternal(Artifact artifact) {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (artifact.getFile() == null) {</span>
+<span class="nc" id="L67">            PluginLogManager.getLog().warn(String.format(&quot;Artifact %s has no file&quot;, artifact));</span>
+<span class="nc" id="L68">            PluginLogManager.getLog().error(&quot;Artifact has no file&quot;);</span>
+<span class="nc" id="L69">            return Optional.empty();</span>
+        }
+        try {
+<span class="nc" id="L72">            MessageDigest messageDigest = MessageDigest.getInstance(checksumAlgorithm);</span>
+<span class="nc" id="L73">            byte[] fileBuffer = Files.readAllBytes(artifact.getFile().toPath());</span>
+<span class="nc" id="L74">            byte[] artifactHash = messageDigest.digest(fileBuffer);</span>
+<span class="nc" id="L75">            BaseEncoding baseEncoding = BaseEncoding.base16();</span>
+<span class="nc" id="L76">            return Optional.of(baseEncoding.encode(artifactHash).toLowerCase(Locale.ROOT));</span>
+<span class="nc" id="L77">        } catch (Exception e) {</span>
+<span class="nc" id="L78">            PluginLogManager.getLog().warn(String.format(&quot;Could not calculate checksum for artifact %s&quot;, artifact), e);</span>
+<span class="nc" id="L79">            return Optional.empty();</span>
+        }
+    }
+
+    private Optional&lt;RepositoryInformation&gt; getResolvedFieldInternal(
+            Artifact artifact, ProjectBuildingRequest buildingRequest) {
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        if (artifact.getFile() == null) {</span>
+<span class="nc" id="L86">            PluginLogManager.getLog().warn(String.format(&quot;Artifact %s has no file&quot;, artifact));</span>
+<span class="nc" id="L87">            PluginLogManager.getLog().error(&quot;Artifact has no file&quot;);</span>
+<span class="nc" id="L88">            return Optional.empty();</span>
+        }
+        try {
+<span class="fc" id="L91">            Path artifactFolderPath = artifact.getFile().toPath().getParent();</span>
+<span class="fc" id="L92">            Path remoteRepositoriesPath = artifactFolderPath.resolve(&quot;_remote.repositories&quot;);</span>
+<span class="fc" id="L93">            List&lt;String&gt; locallySavedRemoteRepositories = Files.readAllLines(remoteRepositoriesPath);</span>
+
+<span class="fc" id="L95">            Set&lt;String&gt; remoteRepositoriesSet = buildingRequest.getRemoteRepositories().stream()</span>
+<span class="fc" id="L96">                    .map(ArtifactRepository::getId)</span>
+<span class="fc" id="L97">                    .collect(Collectors.toSet());</span>
+
+<span class="fc" id="L99">            String repository = null;</span>
+<span class="fc" id="L100">            boolean foundWithEmptyRepoId = false;</span>
+
+<span class="fc" id="L102">            String type = artifact.getArtifactHandler().getExtension();</span>
+
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">            String classifier = artifact.getClassifier() == null ? &quot;&quot; : &quot;-&quot; + artifact.getClassifier();</span>
+<span class="fc" id="L105">            String artifactFileName = artifact.getArtifactId() + &quot;-&quot; + artifact.getVersion() + classifier + &quot;.&quot; + type;</span>
+
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">            for (String remoteRepository : locallySavedRemoteRepositories) {</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">                if (!remoteRepository.startsWith(artifactFileName)) {</span>
+<span class="nc" id="L109">                    continue;</span>
+                }
+                // Parsing 'repository' from 'artifactId-version.type&gt;repository='
+<span class="fc" id="L112">                repository = parseRepositoryIdFromLine(remoteRepository, artifactFileName);</span>
+<span class="pc bpc" id="L113" title="2 of 4 branches missed.">                if (repository != null &amp;&amp; repository.isEmpty()) {</span>
+                    // Empty repo ID means the artifact was resolved locally (e.g. copied from user's
+                    // .m2 to an isolated repo). Record this and keep looking for a non-empty entry.
+<span class="nc" id="L116">                    foundWithEmptyRepoId = true;</span>
+<span class="nc" id="L117">                    repository = null;</span>
+<span class="nc" id="L118">                    continue;</span>
+                }
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">                if (!remoteRepositoriesSet.contains(repository)) {</span>
+<span class="nc" id="L121">                    continue;</span>
+                }
+
+                break;
+            }
+
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">            if (repository == null) {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">                if (foundWithEmptyRepoId) {</span>
+                    // Artifact was locally installed/copied (no remote attribution in _remote.repositories).
+                    // Attempt to find the correct repo by checking the user's default .m2 repository,
+                    // which retains the original remote attribution from when the artifact was downloaded.
+<span class="nc" id="L132">                    Path isoRepoBase = java.nio.file.Paths.get(</span>
+<span class="nc" id="L133">                            buildingRequest.getLocalRepository().getBasedir());</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">                    if (artifactFolderPath.startsWith(isoRepoBase)) {</span>
+<span class="nc" id="L135">                        Path relPath = isoRepoBase.relativize(artifactFolderPath);</span>
+<span class="nc" id="L136">                        Path userM2 = java.nio.file.Paths.get(System.getProperty(&quot;user.home&quot;), &quot;.m2&quot;, &quot;repository&quot;);</span>
+<span class="nc" id="L137">                        Path fallbackFolder = userM2.resolve(relPath);</span>
+<span class="nc" id="L138">                        Path remoteRepositoriesFile = fallbackFolder.resolve(&quot;_remote.repositories&quot;);</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                        if (Files.exists(remoteRepositoriesFile)) {</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                            for (String line : Files.readAllLines(remoteRepositoriesFile)) {</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">                                if (!line.startsWith(artifactFileName)) continue;</span>
+
+<span class="nc" id="L143">                                String remoteRepository = parseRepositoryIdFromLine(line, artifactFileName);</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">                                if (remoteRepository != null</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">                                        &amp;&amp; !remoteRepository.isEmpty()</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">                                        &amp;&amp; remoteRepositoriesSet.contains(remoteRepository)) {</span>
+<span class="nc" id="L147">                                    repository = remoteRepository;</span>
+<span class="nc" id="L148">                                    break;</span>
+                                }
+<span class="nc" id="L150">                            }</span>
+                        }
+                    }
+                }
+<span class="nc bnc" id="L154" title="All 2 branches missed.">                if (repository == null) {</span>
+                    // No repository found, possible locally installed artifact or unknown format
+<span class="nc" id="L156">                    return Optional.empty();</span>
+                }
+            }
+
+            // Convert repository to url
+<span class="fc" id="L161">            final String finalRepository = repository;</span>
+<span class="fc" id="L162">            Optional&lt;ArtifactRepository&gt; remoteRepository = buildingRequest.getRemoteRepositories().stream()</span>
+<span class="fc" id="L163">                    .filter(repo -&gt; (repo.getId().equals(finalRepository)))</span>
+<span class="fc" id="L164">                    .findFirst();</span>
+
+<span class="pc bpc" id="L166" title="1 of 2 branches missed.">            if (remoteRepository.isEmpty()) {</span>
+<span class="nc" id="L167">                PluginLogManager.getLog()</span>
+<span class="nc" id="L168">                        .warn(String.format(&quot;Could not find repository '%s' in building request.&quot;, finalRepository));</span>
+<span class="nc" id="L169">                return Optional.empty();</span>
+            }
+
+<span class="fc" id="L172">            String groupId = artifact.getGroupId().replace(&quot;.&quot;, &quot;/&quot;);</span>
+<span class="fc" id="L173">            String artifactId = artifact.getArtifactId();</span>
+<span class="fc" id="L174">            String baseVersion = artifact.getBaseVersion();</span>
+
+<span class="fc" id="L176">            String url = remoteRepository.get().getUrl().replaceAll(&quot;/$&quot;, &quot;&quot;) + &quot;/&quot; + groupId + &quot;/&quot; + artifactId + &quot;/&quot;</span>
+                    + baseVersion + &quot;/&quot; + artifactFileName;
+
+<span class="fc" id="L179">            return Optional.of(new RepositoryInformation(ResolvedUrl.of(url), RepositoryId.of(repository)));</span>
+<span class="nc" id="L180">        } catch (Exception e) {</span>
+<span class="nc" id="L181">            PluginLogManager.getLog()</span>
+<span class="nc" id="L182">                    .warn(String.format(&quot;Could not fetch remote repository for artifact %s&quot;, artifact), e);</span>
+<span class="nc" id="L183">            return Optional.empty();</span>
+        }
+    }
+
+    /**
+     * Parses a repository ID from a _remote.repositories file line.
+     * Format: &quot;filename&amp;gt;repositoryId=&quot;
+     *
+     * @param line The line to parse
+     * @param artifactFilename The artifact filename to match
+     * @return The repository ID if line matches (may be empty string), null if line doesn't match
+     */
+    private String parseRepositoryIdFromLine(String line, String artifactFilename) {
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        if (!line.startsWith(artifactFilename + &quot;&gt;&quot;)) {</span>
+<span class="nc" id="L197">            return null;</span>
+        }
+
+<span class="fc" id="L200">        int start = line.indexOf(&quot;&gt;&quot;);</span>
+<span class="fc" id="L201">        int end = line.indexOf(&quot;=&quot;);</span>
+
+<span class="pc bpc" id="L203" title="2 of 4 branches missed.">        if (start == -1 || end == -1) {</span>
+<span class="nc" id="L204">            PluginLogManager.getLog().warn(&quot;Possible unknown _remote.repositories format: &quot; + line);</span>
+<span class="nc" id="L205">            return null;</span>
+        }
+
+<span class="fc" id="L208">        return line.substring(start + 1, end);</span>
+    }
+
+    @Override
+    public String calculateArtifactChecksum(Artifact artifact) {
+<span class="nc" id="L213">        return calculateChecksumInternal(resolveDependency(artifact, artifactBuildingRequest))</span>
+<span class="nc" id="L214">                .orElse(&quot;&quot;);</span>
+    }
+
+    @Override
+    public String calculatePluginChecksum(Artifact artifact) {
+<span class="nc" id="L219">        return calculateChecksumInternal(resolveDependency(artifact, pluginBuildingRequest))</span>
+<span class="nc" id="L220">                .orElse(&quot;&quot;);</span>
+    }
+
+    @Override
+    public String getDefaultChecksumAlgorithm() {
+<span class="fc" id="L225">        return &quot;SHA-256&quot;;</span>
+    }
+
+    @Override
+    public RepositoryInformation getArtifactResolvedField(Artifact artifact) {
+        // If the artifact already has its file set (e.g. pre-resolved from local .m2),
+        // skip re-resolution — the resolver may return a new Artifact without the file.
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">        Artifact toCheck = artifact.getFile() != null ? artifact : resolveDependency(artifact, artifactBuildingRequest);</span>
+<span class="fc" id="L233">        return getResolvedFieldInternal(toCheck, artifactBuildingRequest).orElse(RepositoryInformation.Unresolved());</span>
+    }
+
+    @Override
+    public RepositoryInformation getPluginResolvedField(Artifact artifact) {
+<span class="nc bnc" id="L238" title="All 2 branches missed.">        Artifact toCheck = artifact.getFile() != null ? artifact : resolveDependency(artifact, pluginBuildingRequest);</span>
+<span class="nc" id="L239">        return getResolvedFieldInternal(toCheck, pluginBuildingRequest).orElse(RepositoryInformation.Unresolved());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

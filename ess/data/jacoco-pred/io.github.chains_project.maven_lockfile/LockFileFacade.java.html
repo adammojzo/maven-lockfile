@@ -1,0 +1,864 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LockFileFacade.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile</a> &gt; <span class="el_source">LockFileFacade.java</span></div><h1>LockFileFacade.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile;
+
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
+import io.github.chains_project.maven_lockfile.checksum.AbstractChecksumCalculator;
+import io.github.chains_project.maven_lockfile.checksum.RepositoryInformation;
+import io.github.chains_project.maven_lockfile.data.*;
+import io.github.chains_project.maven_lockfile.graph.DependencyGraph;
+import io.github.chains_project.maven_lockfile.recorder.DynamicResolutionStore;
+import io.github.chains_project.maven_lockfile.recorder.RecordedArtifact;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import io.github.chains_project.maven_lockfile.resolvers.BomResolver;
+import io.github.chains_project.maven_lockfile.resolvers.ProjectBuilder;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.ArtifactUtils;
+import org.apache.maven.artifact.DefaultArtifact;
+import org.apache.maven.artifact.handler.DefaultArtifactHandler;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Extension;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.shared.dependency.graph.DependencyCollectorBuilder;
+import org.apache.maven.shared.dependency.graph.DependencyCollectorBuilderException;
+import org.apache.maven.shared.dependency.graph.DependencyNode;
+import org.apache.maven.shared.dependency.graph.traversal.DependencyNodeVisitor;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.collection.CollectRequest;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.*;
+import org.eclipse.aether.util.artifact.JavaScopes;
+
+/**
+ * Entry point for the lock file generation. This class is responsible for generating the lock file for a project.
+ *
+ */
+public class LockFileFacade {
+    /**
+     * This visitor is used to traverse the dependency graph and add the edges to the graph.
+     */
+    private static final class GraphBuildingNodeVisitor implements DependencyNodeVisitor {
+        private final MutableGraph&lt;DependencyNode&gt; graph;
+        private final MavenProject project;
+
+        /**
+         * Create a new instance of the visitor.
+         *
+         * @param graph The graph to add the edges to.
+         * @param project The project to resolve the dependencies for.
+         *                This is useful to resolve `RELEASE` and `LATEST` versions, which are not resolved
+         *                by dependency collector.
+         */
+<span class="nc" id="L65">        private GraphBuildingNodeVisitor(MutableGraph&lt;DependencyNode&gt; graph, MavenProject project) {</span>
+<span class="nc" id="L66">            this.graph = graph;</span>
+<span class="nc" id="L67">            this.project = project;</span>
+<span class="nc" id="L68">        }</span>
+
+        @Override
+        public boolean visit(DependencyNode node) {
+<span class="nc" id="L72">            String version = node.getArtifact().getVersion();</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">            if (isSpecialVersion(version)) {</span>
+<span class="nc" id="L74">                project.getArtifacts().stream()</span>
+<span class="nc" id="L75">                        .filter(a -&gt; a.getDependencyConflictId()</span>
+<span class="nc" id="L76">                                .equals(node.getArtifact().getDependencyConflictId()))</span>
+<span class="nc" id="L77">                        .findFirst()</span>
+<span class="nc" id="L78">                        .ifPresent(resolved -&gt; {</span>
+<span class="nc" id="L79">                            node.getArtifact().setVersion(resolved.getVersion());</span>
+<span class="nc" id="L80">                            node.getArtifact().setFile(resolved.getFile());</span>
+<span class="nc" id="L81">                        });</span>
+            }
+<span class="nc" id="L83">            node.getChildren().forEach(v -&gt; graph.putEdge(node, v));</span>
+<span class="nc" id="L84">            return true;</span>
+        }
+
+        @Override
+        public boolean endVisit(DependencyNode node) {
+<span class="nc" id="L89">            return true;</span>
+        }
+    }
+
+    /**
+     * Generate a lock file for a project.
+     *
+     * @param project The project to generate a lock file for.
+     * @return A lock file for the project.
+     */
+    public static Path getLockFilePath(MavenProject project, String lockfileName) {
+<span class="nc" id="L100">        return Path.of(project.getBasedir().getAbsolutePath(), lockfileName);</span>
+    }
+
+    private LockFileFacade() {
+        // Prevent instantiation
+    }
+
+    /**
+     * Generate a lock file for a project. This method is responsible for generating the lock file for a project. It uses the dependency collector to generate the dependency graph and then resolves the dependencies.
+     *
+     * @param session                    The maven session.
+     * @param project                    The project to generate a lock file for.
+     * @param dependencyCollectorBuilder The dependency collector builder to use for generating the dependency graph.
+     * @param checksumCalculator         The checksum calculator to use for calculating the checksums of the artifacts.
+     * @param metadata                   The metadata to include in the lock file.
+     * @param repositorySystem           The repository system for resolving artifacts.
+     * @return A lock file for the project.
+     */
+    public static LockFile generateLockFileFromProject(
+            MavenSession session,
+            MavenProject project,
+            DependencyCollectorBuilder dependencyCollectorBuilder,
+            AbstractChecksumCalculator checksumCalculator,
+            MetaData metadata,
+            RepositorySystem repositorySystem) {
+<span class="nc" id="L125">        PluginLogManager.getLog().info(String.format(&quot;Generating lock file for project %s&quot;, project.getArtifactId()));</span>
+<span class="nc" id="L126">        Config config = metadata.getConfig();</span>
+<span class="nc" id="L127">        Set&lt;MavenPlugin&gt; plugins = new TreeSet&lt;&gt;();</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (config.isIncludeMavenPlugins()) {</span>
+<span class="nc" id="L129">            plugins = getAllPlugins(project, session, dependencyCollectorBuilder, checksumCalculator, config);</span>
+        }
+
+<span class="nc" id="L132">        Set&lt;MavenExtension&gt; extensions = new TreeSet&lt;&gt;();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (config.isIncludeMavenExtensions()) {</span>
+<span class="nc" id="L134">            extensions = getAllExtensions(</span>
+                    project, session, dependencyCollectorBuilder, checksumCalculator, repositorySystem, config);
+        }
+
+        // Get all the artifacts for the dependencies in the project
+<span class="nc" id="L139">        DependencyGraph dependencyGraph = createDependencyGraph(</span>
+                project,
+                session,
+<span class="nc" id="L142">                project.getRemoteArtifactRepositories(),</span>
+                dependencyCollectorBuilder,
+                checksumCalculator,
+                null,
+<span class="nc" id="L146">                config.isReduced());</span>
+
+<span class="nc" id="L148">        var roots = dependencyGraph.getRoots();</span>
+<span class="nc" id="L149">        var pom = constructRecursivePom(project, session, checksumCalculator);</span>
+
+<span class="nc bnc" id="L151" title="All 4 branches missed.">        if (config.isIncludeParentPom() || config.isIncludeBoms()) {</span>
+<span class="nc" id="L152">            resolveParentsAndBomsForDependencies(dependencyGraph, session, project, checksumCalculator);</span>
+        }
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        Set&lt;Pom&gt; boms = config.isIncludeBoms() ? resolveBoms(session, project, checksumCalculator) : new TreeSet&lt;&gt;();</span>
+
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (config.isHermetic()) {</span>
+<span class="nc" id="L157">            plugins =</span>
+<span class="nc" id="L158">                    attachDynamicallyResolvedDependencies(session, checksumCalculator, pom, roots, plugins, extensions);</span>
+        }
+
+<span class="nc" id="L161">        return new LockFile(</span>
+<span class="nc" id="L162">                GroupId.of(project.getGroupId()),</span>
+<span class="nc" id="L163">                ArtifactId.of(project.getArtifactId()),</span>
+<span class="nc" id="L164">                VersionNumber.of(project.getVersion()),</span>
+                pom,
+                roots,
+                plugins,
+                extensions,
+                metadata,
+                boms);
+    }
+
+    /**
+     * Merges artifacts a DynamicResolutionSpy extension recorded directly into the {@link
+     * MavenPlugin} whose Mojo was executing when each one was resolved, skipping GAVs already
+     * covered by the static graph. An artifact whose triggering plugin isn't one of {@code
+     * plugins} is dropped with a warning rather than surfaced anywhere else.
+     */
+    private static Set&lt;MavenPlugin&gt; attachDynamicallyResolvedDependencies(
+            MavenSession session,
+            AbstractChecksumCalculator checksumCalculator,
+            Pom projectPom,
+            Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt; roots,
+            Set&lt;MavenPlugin&gt; plugins,
+            Set&lt;MavenExtension&gt; extensions) {
+<span class="nc" id="L186">        var multiModuleProjectDirectory = session.getRequest().getMultiModuleProjectDirectory();</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (multiModuleProjectDirectory == null) {</span>
+<span class="nc" id="L188">            return plugins;</span>
+        }
+
+<span class="nc" id="L191">        Path recordedPath = DynamicResolutionStore.defaultPath(multiModuleProjectDirectory.toPath());</span>
+        List&lt;RecordedArtifact&gt; recorded;
+        try {
+<span class="nc" id="L194">            recorded = DynamicResolutionStore.read(recordedPath);</span>
+<span class="nc" id="L195">        } catch (IOException e) {</span>
+<span class="nc" id="L196">            PluginLogManager.getLog().warn(&quot;Could not read recorded dynamic resolutions&quot;, e);</span>
+<span class="nc" id="L197">            return plugins;</span>
+<span class="nc" id="L198">        }</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (recorded.isEmpty()) {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">            if (Files.exists(recordedPath)) {</span>
+<span class="nc" id="L201">                PluginLogManager.getLog()</span>
+<span class="nc" id="L202">                        .warn(&quot;DynamicResolutionSpy is attached but recorded no dynamically-resolved artifacts &quot;</span>
+                                + &quot;this session. If you expected some (e.g. Surefire's test-framework provider), &quot;
+                                + &quot;make sure the build already ran past the phase that triggers them (e.g. `test` &quot;
+                                + &quot;or `verify`) before this goal runs - this goal's default binding is &quot;
+                                + &quot;generate-resources, which runs earlier in the lifecycle.&quot;);
+            }
+<span class="nc" id="L208">            return plugins;</span>
+        }
+
+<span class="nc" id="L211">        Set&lt;String&gt; knownGavs = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L212">        collectPomChainGavs(projectPom, knownGavs);</span>
+<span class="nc" id="L213">        roots.forEach(node -&gt; collectGavs(node, knownGavs));</span>
+<span class="nc" id="L214">        plugins.forEach(plugin -&gt; {</span>
+<span class="nc" id="L215">            knownGavs.add(gavKey(plugin.getGroupId(), plugin.getArtifactId(), plugin.getVersion()));</span>
+<span class="nc" id="L216">            collectPomChainGavs(plugin.getParentPom(), knownGavs);</span>
+<span class="nc" id="L217">            plugin.getDependencies().forEach(node -&gt; collectGavs(node, knownGavs));</span>
+<span class="nc" id="L218">        });</span>
+<span class="nc" id="L219">        extensions.forEach(extension -&gt; {</span>
+<span class="nc" id="L220">            knownGavs.add(gavKey(extension.getGroupId(), extension.getArtifactId(), extension.getVersion()));</span>
+<span class="nc" id="L221">            collectPomChainGavs(extension.getParentPom(), knownGavs);</span>
+<span class="nc" id="L222">            extension.getDependencies().forEach(node -&gt; collectGavs(node, knownGavs));</span>
+<span class="nc" id="L223">        });</span>
+
+        // Jars first: anything not already in the static graph is genuinely new.
+<span class="nc" id="L226">        Set&lt;String&gt; newGavs = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L227">        Set&lt;String&gt; newGroupIds = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L228">        Map&lt;String, Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt;&gt; newDependenciesByPlugin =</span>
+                new HashMap&lt;&gt;();
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        for (RecordedArtifact artifact : recorded) {</span>
+<span class="nc bnc" id="L231" title="All 4 branches missed.">            if (&quot;pom&quot;.equals(artifact.getExtension()) || knownGavs.contains(gavKey(artifact))) {</span>
+<span class="nc" id="L232">                continue;</span>
+            }
+<span class="nc" id="L234">            newGavs.add(gavKey(artifact));</span>
+<span class="nc" id="L235">            newGroupIds.add(artifact.getGroupId());</span>
+<span class="nc" id="L236">            addDynamicDependency(newDependenciesByPlugin, artifact, checksumCalculator);</span>
+<span class="nc" id="L237">        }</span>
+
+        // Then POMs with no matching jar (e.g. a pom-only parent like surefire-providers),
+        // restricted to groupIds already confirmed dynamic above to filter out ordinary
+        // version-mediation noise.
+<span class="nc bnc" id="L242" title="All 2 branches missed.">        for (RecordedArtifact artifact : recorded) {</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            if (!&quot;pom&quot;.equals(artifact.getExtension())) {</span>
+<span class="nc" id="L244">                continue;</span>
+            }
+<span class="nc" id="L246">            String key = gavKey(artifact);</span>
+<span class="nc bnc" id="L247" title="All 6 branches missed.">            if (knownGavs.contains(key) || newGavs.contains(key) || !newGroupIds.contains(artifact.getGroupId())) {</span>
+<span class="nc" id="L248">                continue;</span>
+            }
+<span class="nc" id="L250">            addDynamicDependency(newDependenciesByPlugin, artifact, checksumCalculator);</span>
+<span class="nc" id="L251">        }</span>
+
+<span class="nc bnc" id="L253" title="All 2 branches missed.">        if (newDependenciesByPlugin.isEmpty()) {</span>
+<span class="nc" id="L254">            return plugins;</span>
+        }
+
+<span class="nc" id="L257">        Set&lt;MavenPlugin&gt; result = new TreeSet&lt;&gt;();</span>
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        for (MavenPlugin plugin : plugins) {</span>
+<span class="nc" id="L259">            String pluginKey = gavKey(</span>
+<span class="nc" id="L260">                    plugin.getGroupId().getValue(), plugin.getArtifactId().getValue());</span>
+<span class="nc" id="L261">            Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt; newDeps =</span>
+<span class="nc" id="L262">                    newDependenciesByPlugin.remove(pluginKey);</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">            if (newDeps == null) {</span>
+<span class="nc" id="L264">                result.add(plugin);</span>
+<span class="nc" id="L265">                continue;</span>
+            }
+<span class="nc" id="L267">            Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt; mergedDeps = new TreeSet&lt;&gt;();</span>
+<span class="nc" id="L268">            mergedDeps.addAll(plugin.getDependencies());</span>
+<span class="nc" id="L269">            mergedDeps.addAll(newDeps);</span>
+<span class="nc" id="L270">            result.add(new MavenPlugin(</span>
+<span class="nc" id="L271">                    plugin.getGroupId(),</span>
+<span class="nc" id="L272">                    plugin.getArtifactId(),</span>
+<span class="nc" id="L273">                    plugin.getVersion(),</span>
+<span class="nc" id="L274">                    plugin.getResolved(),</span>
+<span class="nc" id="L275">                    plugin.getRepositoryId(),</span>
+<span class="nc" id="L276">                    plugin.getChecksumAlgorithm(),</span>
+<span class="nc" id="L277">                    plugin.getChecksum(),</span>
+                    mergedDeps,
+<span class="nc" id="L279">                    plugin.getParentPom()));</span>
+<span class="nc" id="L280">        }</span>
+<span class="nc" id="L281">        newDependenciesByPlugin.forEach((pluginKey, deps) -&gt; PluginLogManager.getLog()</span>
+<span class="nc" id="L282">                .warn(String.format(</span>
+                        &quot;Dynamically-resolved dependencies attributed to plugin %s, which isn't part of this &quot;
+                                + &quot;project's build plugins; dropping %d artifact(s): %s&quot;,
+<span class="nc" id="L285">                        pluginKey, deps.size(), deps)));</span>
+<span class="nc" id="L286">        return result;</span>
+    }
+
+    private static void addDynamicDependency(
+            Map&lt;String, Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt;&gt; byPlugin,
+            RecordedArtifact artifact,
+            AbstractChecksumCalculator checksumCalculator) {
+<span class="nc bnc" id="L293" title="All 4 branches missed.">        if (artifact.getTriggeringPluginGroupId() == null || artifact.getTriggeringPluginArtifactId() == null) {</span>
+<span class="nc" id="L294">            PluginLogManager.getLog()</span>
+<span class="nc" id="L295">                    .warn(&quot;Dynamically-resolved artifact &quot; + artifact + &quot; has no known triggering plugin; skipping&quot;);</span>
+<span class="nc" id="L296">            return;</span>
+        }
+        try {
+<span class="nc" id="L299">            Artifact mavenArtifact = new DefaultArtifact(</span>
+<span class="nc" id="L300">                    artifact.getGroupId(),</span>
+<span class="nc" id="L301">                    artifact.getArtifactId(),</span>
+<span class="nc" id="L302">                    artifact.getVersion(),</span>
+                    &quot;runtime&quot;,
+<span class="nc" id="L304">                    artifact.getExtension(),</span>
+<span class="nc" id="L305">                    artifact.getClassifier(),</span>
+<span class="nc" id="L306">                    new DefaultArtifactHandler(artifact.getExtension()));</span>
+            // These artifacts are triggered by a plugin's Mojo execution (e.g. Surefire pulling in
+            // its JUnit-Platform provider chain), so they were resolved via plugin repositories, not
+            // the project's artifact repositories - use the plugin-scoped checksum/resolution path.
+<span class="nc" id="L310">            RepositoryInformation repositoryInformation = checksumCalculator.getPluginResolvedField(mavenArtifact);</span>
+<span class="nc" id="L311">            String checksum = checksumCalculator.calculatePluginChecksum(mavenArtifact);</span>
+<span class="nc" id="L312">            io.github.chains_project.maven_lockfile.graph.DependencyNode node =</span>
+<span class="nc" id="L313">                    io.github.chains_project.maven_lockfile.graph.DependencyNode.of(</span>
+<span class="nc" id="L314">                            ArtifactId.of(artifact.getArtifactId()),</span>
+<span class="nc" id="L315">                            GroupId.of(artifact.getGroupId()),</span>
+<span class="nc" id="L316">                            VersionNumber.of(artifact.getVersion()),</span>
+<span class="nc" id="L317">                            Classifier.of(artifact.getClassifier()),</span>
+<span class="nc" id="L318">                            ArtifactType.of(artifact.getExtension()),</span>
+                            MavenScope.RUNTIME,
+<span class="nc" id="L320">                            repositoryInformation.getResolvedUrl(),</span>
+<span class="nc" id="L321">                            repositoryInformation.getRepositoryId(),</span>
+<span class="nc" id="L322">                            checksumCalculator.getChecksumAlgorithm(),</span>
+                            checksum);
+<span class="nc" id="L324">            String pluginKey = gavKey(artifact.getTriggeringPluginGroupId(), artifact.getTriggeringPluginArtifactId());</span>
+<span class="nc" id="L325">            byPlugin.computeIfAbsent(pluginKey, k -&gt; new TreeSet&lt;&gt;()).add(node);</span>
+<span class="nc" id="L326">        } catch (Exception e) {</span>
+<span class="nc" id="L327">            PluginLogManager.getLog()</span>
+<span class="nc" id="L328">                    .warn(</span>
+<span class="nc" id="L329">                            String.format(</span>
+                                    &quot;Could not resolve checksum for dynamically-resolved artifact %s; skipping&quot;,
+                                    artifact),
+                            e);
+<span class="nc" id="L333">        }</span>
+<span class="nc" id="L334">    }</span>
+
+    private static String gavKey(RecordedArtifact artifact) {
+<span class="nc" id="L337">        return artifact.getGroupId() + &quot;:&quot; + artifact.getArtifactId() + &quot;:&quot; + artifact.getVersion();</span>
+    }
+
+    private static String gavKey(String groupId, String artifactId) {
+<span class="nc" id="L341">        return groupId + &quot;:&quot; + artifactId;</span>
+    }
+
+    private static void collectGavs(
+            io.github.chains_project.maven_lockfile.graph.DependencyNode node, Set&lt;String&gt; gavs) {
+<span class="nc" id="L346">        gavs.add(gavKey(node.getGroupId(), node.getArtifactId(), node.getVersion()));</span>
+<span class="nc" id="L347">        collectPomChainGavs(node.getParentPom(), gavs);</span>
+<span class="nc" id="L348">        node.getChildren().forEach(child -&gt; collectGavs(child, gavs));</span>
+<span class="nc" id="L349">    }</span>
+
+    private static void collectPomChainGavs(Pom pom, Set&lt;String&gt; gavs) {
+<span class="nc bnc" id="L352" title="All 2 branches missed.">        while (pom != null) {</span>
+<span class="nc" id="L353">            gavs.add(gavKey(pom.getGroupId(), pom.getArtifactId(), pom.getVersion()));</span>
+<span class="nc" id="L354">            pom = pom.getParent();</span>
+        }
+<span class="nc" id="L356">    }</span>
+
+    private static String gavKey(GroupId groupId, ArtifactId artifactId, VersionNumber version) {
+<span class="nc" id="L359">        return groupId.getValue() + &quot;:&quot; + artifactId.getValue() + &quot;:&quot; + version.getValue();</span>
+    }
+
+    private static Set&lt;MavenExtension&gt; getAllExtensions(
+            MavenProject project,
+            MavenSession session,
+            DependencyCollectorBuilder dependencyCollectorBuilder,
+            AbstractChecksumCalculator checksumCalculator,
+            RepositorySystem repositorySystem,
+            Config config) {
+<span class="nc" id="L369">        Set&lt;MavenExtension&gt; extensions = new TreeSet&lt;&gt;();</span>
+
+<span class="nc" id="L371">        List&lt;Extension&gt; buildExtensions = project.getBuildExtensions();</span>
+<span class="nc bnc" id="L372" title="All 4 branches missed.">        if (buildExtensions == null || buildExtensions.isEmpty()) {</span>
+<span class="nc" id="L373">            return extensions;</span>
+        }
+
+<span class="nc" id="L376">        RepositorySystemSession repoSession = session.getRepositorySession();</span>
+<span class="nc" id="L377">        List&lt;RemoteRepository&gt; repositories = project.getRemotePluginRepositories();</span>
+
+        // Collect all extensions as dependencies
+<span class="nc" id="L380">        List&lt;org.eclipse.aether.graph.Dependency&gt; extensionDependencies = buildExtensions.stream()</span>
+<span class="nc" id="L381">                .map(ext -&gt; toExtensionDependency(ext, repositorySystem, repoSession, repositories))</span>
+<span class="nc" id="L382">                .flatMap(Optional::stream)</span>
+<span class="nc" id="L383">                .collect(Collectors.toList());</span>
+
+        // Resolve all extensions and their dependencies in one call
+<span class="nc" id="L386">        CollectRequest collectRequest = new CollectRequest();</span>
+<span class="nc" id="L387">        collectRequest.setDependencies(extensionDependencies);</span>
+<span class="nc" id="L388">        collectRequest.setRepositories(repositories);</span>
+
+<span class="nc" id="L390">        DependencyRequest dependencyRequest = new DependencyRequest();</span>
+<span class="nc" id="L391">        dependencyRequest.setCollectRequest(collectRequest);</span>
+
+<span class="nc" id="L393">        ProjectBuilder extensionProjectBuilder = new ProjectBuilder(session, project.getPluginArtifactRepositories());</span>
+
+        try {
+<span class="nc" id="L396">            DependencyResult dependencyResult = repositorySystem.resolveDependencies(repoSession, dependencyRequest);</span>
+
+            // Process each resolved extension (direct dependencies from the root)
+            for (org.eclipse.aether.graph.DependencyNode node :
+<span class="nc bnc" id="L400" title="All 2 branches missed.">                    dependencyResult.getRoot().getChildren()) {</span>
+<span class="nc" id="L401">                org.eclipse.aether.artifact.Artifact artifact = node.getArtifact();</span>
+
+                // Convert Aether artifact to Maven artifact for compatibility with checksumCalculator
+<span class="nc" id="L404">                Artifact mavenArtifact = new org.apache.maven.artifact.DefaultArtifact(</span>
+<span class="nc" id="L405">                        artifact.getGroupId(),</span>
+<span class="nc" id="L406">                        artifact.getArtifactId(),</span>
+<span class="nc" id="L407">                        artifact.getVersion(),</span>
+                        &quot;compile&quot;,
+<span class="nc" id="L409">                        artifact.getExtension(),</span>
+<span class="nc" id="L410">                        artifact.getClassifier(),</span>
+<span class="nc" id="L411">                        new DefaultArtifactHandler(artifact.getExtension()));</span>
+<span class="nc" id="L412">                mavenArtifact.setFile(artifact.getFile());</span>
+
+<span class="nc" id="L414">                RepositoryInformation repositoryInformation = checksumCalculator.getPluginResolvedField(mavenArtifact);</span>
+
+<span class="nc" id="L416">                Optional&lt;MavenProject&gt; extensionProjectOptional = extensionProjectBuilder.buildFromGav(</span>
+<span class="nc" id="L417">                        artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion());</span>
+
+                // Resolve extension's transitive dependencies using the existing mechanism
+<span class="nc" id="L420">                Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt; transitiveDeps =</span>
+<span class="nc" id="L421">                        resolveComponentDependencies(</span>
+<span class="nc" id="L422">                                extensionProjectOptional.get(),</span>
+                                session,
+<span class="nc" id="L424">                                project.getPluginArtifactRepositories(),</span>
+                                dependencyCollectorBuilder,
+                                checksumCalculator,
+<span class="nc" id="L427">                                Collections.emptyList(),</span>
+                                config);
+
+<span class="nc" id="L430">                extensions.add(new MavenExtension(</span>
+<span class="nc" id="L431">                        GroupId.of(artifact.getGroupId()),</span>
+<span class="nc" id="L432">                        ArtifactId.of(artifact.getArtifactId()),</span>
+<span class="nc" id="L433">                        VersionNumber.of(artifact.getVersion()),</span>
+<span class="nc" id="L434">                        checksumCalculator.calculatePluginChecksum(mavenArtifact),</span>
+<span class="nc" id="L435">                        checksumCalculator.getChecksumAlgorithm(),</span>
+<span class="nc" id="L436">                        repositoryInformation.getResolvedUrl(),</span>
+<span class="nc" id="L437">                        repositoryInformation.getRepositoryId(),</span>
+                        transitiveDeps));
+<span class="nc" id="L439">            }</span>
+<span class="nc" id="L440">        } catch (DependencyResolutionException e) {</span>
+<span class="nc" id="L441">            PluginLogManager.getLog().warn(&quot;Failed to resolve extension dependencies&quot;, e);</span>
+<span class="nc" id="L442">        }</span>
+
+<span class="nc" id="L444">        return extensions;</span>
+    }
+
+    private static Optional&lt;org.eclipse.aether.graph.Dependency&gt; toExtensionDependency(
+            Extension extension,
+            RepositorySystem repositorySystem,
+            RepositorySystemSession repoSession,
+            List&lt;RemoteRepository&gt; repositories) {
+<span class="nc" id="L452">        String version = extension.getVersion();</span>
+<span class="nc bnc" id="L453" title="All 6 branches missed.">        if (version == null || version.isBlank() || isSpecialVersion(version)) {</span>
+<span class="nc bnc" id="L454" title="All 4 branches missed.">            String requestedVersion = (version == null || version.isBlank()) ? &quot;RELEASE&quot; : version;</span>
+            try {
+<span class="nc" id="L456">                VersionRequest request = new VersionRequest(</span>
+                        new org.eclipse.aether.artifact.DefaultArtifact(
+<span class="nc" id="L458">                                extension.getGroupId(), extension.getArtifactId(), &quot;jar&quot;, requestedVersion),</span>
+                        repositories,
+                        null);
+<span class="nc" id="L461">                version = repositorySystem.resolveVersion(repoSession, request).getVersion();</span>
+<span class="nc" id="L462">                PluginLogManager.getLog()</span>
+<span class="nc" id="L463">                        .warn(String.format(</span>
+                                &quot;Extension %s:%s has no explicit version; resolved to %s&quot;,
+<span class="nc" id="L465">                                extension.getGroupId(), extension.getArtifactId(), version));</span>
+<span class="nc" id="L466">            } catch (VersionResolutionException e) {</span>
+<span class="nc" id="L467">                PluginLogManager.getLog()</span>
+<span class="nc" id="L468">                        .warn(String.format(</span>
+                                &quot;Skipping extension %s:%s: no version declared and could not resolve one&quot;,
+<span class="nc" id="L470">                                extension.getGroupId(), extension.getArtifactId()));</span>
+<span class="nc" id="L471">                return Optional.empty();</span>
+<span class="nc" id="L472">            }</span>
+        }
+<span class="nc" id="L474">        org.eclipse.aether.artifact.Artifact artifact = new org.eclipse.aether.artifact.DefaultArtifact(</span>
+<span class="nc" id="L475">                extension.getGroupId(), extension.getArtifactId(), &quot;jar&quot;, version);</span>
+<span class="nc" id="L476">        return Optional.of(new org.eclipse.aether.graph.Dependency(artifact, JavaScopes.RUNTIME));</span>
+    }
+
+    private static void resolveParentsAndBomsForDependencies(
+            DependencyGraph graph,
+            MavenSession session,
+            MavenProject rootProject,
+            AbstractChecksumCalculator checksumCalculator) {
+<span class="nc" id="L484">        ProjectBuilder builder = new ProjectBuilder(session, rootProject.getRemoteArtifactRepositories());</span>
+<span class="nc" id="L485">        BomResolver bomResolver =</span>
+<span class="nc" id="L486">                new BomResolver(session, rootProject.getRemoteArtifactRepositories(), checksumCalculator);</span>
+
+<span class="nc" id="L488">        graph.getDependencySet().forEach(node -&gt; {</span>
+<span class="nc" id="L489">            var projectOptional = builder.buildFromGav(</span>
+<span class="nc" id="L490">                    node.getGroupId().getValue(),</span>
+<span class="nc" id="L491">                    node.getArtifactId().getValue(),</span>
+<span class="nc" id="L492">                    node.getVersion().getValue());</span>
+
+<span class="nc bnc" id="L494" title="All 2 branches missed.">            if (projectOptional.isEmpty()) {</span>
+<span class="nc" id="L495">                PluginLogManager.getLog()</span>
+<span class="nc" id="L496">                        .warn(String.format(</span>
+                                &quot;Could not build project for dependency %s. Skipping parent and BOM resolution.&quot;,
+                                node));
+<span class="nc" id="L499">                return;</span>
+            }
+<span class="nc" id="L501">            var mavenProject = projectOptional.get();</span>
+
+<span class="nc bnc" id="L503" title="All 2 branches missed.">            if (mavenProject.hasParent()) {</span>
+<span class="nc" id="L504">                PluginLogManager.getLog().debug(String.format(&quot;Writting parent POM for dependency %s&quot;, node));</span>
+
+                // Optimization, not to resolve parent if already resolved
+                // It has to be written in full form before lockfile v2
+<span class="nc" id="L508">                Pom pom = constructRecursivePom(mavenProject.getParent(), session, checksumCalculator);</span>
+<span class="nc" id="L509">                node.setParentPom(pom);</span>
+            }
+
+<span class="nc" id="L512">            Set&lt;Pom&gt; boms = bomResolver.resolveForProject(mavenProject);</span>
+<span class="nc bnc" id="L513" title="All 2 branches missed.">            if (!boms.isEmpty()) {</span>
+<span class="nc" id="L514">                node.setBoms(boms);</span>
+            }
+<span class="nc" id="L516">        });</span>
+<span class="nc" id="L517">    }</span>
+
+    private static Set&lt;MavenPlugin&gt; getAllPlugins(
+            MavenProject project,
+            MavenSession session,
+            DependencyCollectorBuilder dependencyCollectorBuilder,
+            AbstractChecksumCalculator checksumCalculator,
+            Config config) {
+<span class="nc" id="L525">        Set&lt;MavenPlugin&gt; plugins = new TreeSet&lt;&gt;();</span>
+
+        // Build a map of user-declared plugin dependencies
+        // Key: groupId:artifactId, Value: list of user-declared dependencies
+<span class="nc" id="L529">        Map&lt;String, List&lt;Dependency&gt;&gt; userPluginDependencies = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L530" title="All 4 branches missed.">        if (project.getBuild() != null &amp;&amp; project.getBuild().getPlugins() != null) {</span>
+<span class="nc bnc" id="L531" title="All 2 branches missed.">            for (Plugin plugin : project.getBuild().getPlugins()) {</span>
+<span class="nc" id="L532">                String key = plugin.getGroupId() + &quot;:&quot; + plugin.getArtifactId();</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">                if (plugin.getDependencies() != null</span>
+<span class="nc bnc" id="L534" title="All 2 branches missed.">                        &amp;&amp; !plugin.getDependencies().isEmpty()) {</span>
+<span class="nc" id="L535">                    userPluginDependencies.put(key, plugin.getDependencies());</span>
+                }
+<span class="nc" id="L537">            }</span>
+        }
+<span class="nc" id="L539">        ProjectBuilder projectBuilder = new ProjectBuilder(session, project.getPluginArtifactRepositories());</span>
+
+<span class="nc bnc" id="L541" title="All 2 branches missed.">        for (Artifact pluginArtifact : project.getPluginArtifacts()) {</span>
+<span class="nc" id="L542">            RepositoryInformation repositoryInformation = checksumCalculator.getPluginResolvedField(pluginArtifact);</span>
+<span class="nc" id="L543">            String pluginKey = pluginArtifact.getGroupId() + &quot;:&quot; + pluginArtifact.getArtifactId();</span>
+<span class="nc" id="L544">            List&lt;Dependency&gt; userDeclaredDeps = userPluginDependencies.getOrDefault(pluginKey, Collections.emptyList());</span>
+
+<span class="nc" id="L546">            Optional&lt;MavenProject&gt; pluginProjectOptional = projectBuilder.buildFromGav(</span>
+<span class="nc" id="L547">                    pluginArtifact.getGroupId(), pluginArtifact.getArtifactId(), pluginArtifact.getBaseVersion());</span>
+
+<span class="nc bnc" id="L549" title="All 2 branches missed.">            if (pluginProjectOptional.isEmpty()) {</span>
+<span class="nc" id="L550">                PluginLogManager.getLog().warn(String.format(&quot;Could not build project for plugin %s&quot;, pluginArtifact));</span>
+<span class="nc" id="L551">                continue;</span>
+            }
+<span class="nc" id="L553">            MavenProject pluginProject = pluginProjectOptional.get();</span>
+
+<span class="nc" id="L555">            Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt; pluginDependencies =</span>
+<span class="nc" id="L556">                    resolveComponentDependencies(</span>
+                            pluginProject,
+                            session,
+<span class="nc" id="L559">                            project.getPluginArtifactRepositories(),</span>
+                            dependencyCollectorBuilder,
+                            checksumCalculator,
+                            userDeclaredDeps,
+                            config);
+
+<span class="nc" id="L565">            Pom parent = resolvePluginParents(pluginProject, session, checksumCalculator);</span>
+
+<span class="nc" id="L567">            plugins.add(new MavenPlugin(</span>
+<span class="nc" id="L568">                    GroupId.of(pluginArtifact.getGroupId()),</span>
+<span class="nc" id="L569">                    ArtifactId.of(pluginArtifact.getArtifactId()),</span>
+<span class="nc" id="L570">                    VersionNumber.of(pluginArtifact.getVersion()),</span>
+<span class="nc" id="L571">                    repositoryInformation.getResolvedUrl(),</span>
+<span class="nc" id="L572">                    repositoryInformation.getRepositoryId(),</span>
+<span class="nc" id="L573">                    checksumCalculator.getChecksumAlgorithm(),</span>
+<span class="nc" id="L574">                    checksumCalculator.calculatePluginChecksum(pluginArtifact),</span>
+                    pluginDependencies,
+                    parent));
+<span class="nc" id="L577">        }</span>
+<span class="nc" id="L578">        return plugins;</span>
+    }
+
+    private static Pom resolvePluginParents(
+            MavenProject pluginProject, MavenSession session, AbstractChecksumCalculator checksumCalculator) {
+<span class="nc bnc" id="L583" title="All 2 branches missed.">        if (!pluginProject.hasParent()) {</span>
+<span class="nc" id="L584">            return null;</span>
+        }
+<span class="nc" id="L586">        return constructRecursivePom(pluginProject.getParent(), session, checksumCalculator);</span>
+    }
+
+    /**
+     * Resolve the dependencies of a Maven plugin.
+     *
+     * @param pluginProject              The plugin project to resolve dependencies for
+     * @param session                    The Maven session
+     * @param repositories               The repositories to use for resolving dependencies
+     * @param dependencyCollectorBuilder The dependency collector builder
+     * @param checksumCalculator         The checksum calculator
+     * @param userDeclaredDeps           User-declared dependencies for this plugin (from the project's pom.xml)
+     * @return A set of dependency nodes representing the plugin's dependencies
+     */
+    private static Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt; resolveComponentDependencies(
+            MavenProject pluginProject,
+            MavenSession session,
+            List&lt;ArtifactRepository&gt; repositories,
+            DependencyCollectorBuilder dependencyCollectorBuilder,
+            AbstractChecksumCalculator checksumCalculator,
+            List&lt;Dependency&gt; userDeclaredDeps,
+            Config config) {
+<span class="nc" id="L608">        PluginLogManager.getLog()</span>
+<span class="nc" id="L609">                .debug(String.format(&quot;Attempting to resolve dependencies for plugin %s&quot;, pluginProject.getArtifact()));</span>
+        try {
+
+<span class="nc bnc" id="L612" title="All 2 branches missed.">            int declaredDeps = pluginProject.getDependencies() != null</span>
+<span class="nc" id="L613">                    ? pluginProject.getDependencies().size()</span>
+<span class="nc" id="L614">                    : 0;</span>
+<span class="nc" id="L615">            PluginLogManager.getLog()</span>
+<span class="nc" id="L616">                    .debug(String.format(</span>
+                            &quot;Built plugin project %s with %d declared dependencies&quot;,
+<span class="nc" id="L618">                            pluginProject.getArtifact(), declaredDeps));</span>
+
+            // Maven never resolves a plugin's own provided/test dependencies, so drop them before
+            // collecting. Otherwise they win version conflicts (e.g. a provided maven-core) and hide
+            // the transitive artifacts Maven actually loads. Maven collects with the plugin as root,
+            // so its dependencies count as transitive and the session's
+            // ScopeDependencySelector(&quot;test&quot;, &quot;provided&quot;) excludes them:
+            // https://github.com/apache/maven/blob/maven-3.9.14/maven-core/src/main/java/org/apache/maven/plugin/internal/DefaultPluginDependenciesResolver.java#L185-L201
+<span class="nc" id="L626">            pluginProject.setDependencies(pluginProject.getDependencies().stream()</span>
+<span class="nc bnc" id="L627" title="All 4 branches missed.">                    .filter(dep -&gt; !&quot;provided&quot;.equals(dep.getScope()) &amp;&amp; !&quot;test&quot;.equals(dep.getScope()))</span>
+<span class="nc" id="L628">                    .collect(Collectors.toList()));</span>
+
+            // Merge user-declared dependencies into the plugin project
+            // User-declared dependencies override the plugin's default dependencies (e.g., scope changes)
+<span class="nc bnc" id="L632" title="All 2 branches missed.">            if (!userDeclaredDeps.isEmpty()) {</span>
+<span class="nc" id="L633">                List&lt;Dependency&gt; pluginDeps = new ArrayList&lt;&gt;(pluginProject.getDependencies());</span>
+                // Build a map of existing dependencies for quick lookup
+<span class="nc" id="L635">                Map&lt;String, Dependency&gt; existingDepsMap = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L636" title="All 2 branches missed.">                for (Dependency dep : pluginDeps) {</span>
+<span class="nc" id="L637">                    String key = dep.getGroupId() + &quot;:&quot; + dep.getArtifactId();</span>
+<span class="nc" id="L638">                    existingDepsMap.put(key, dep);</span>
+<span class="nc" id="L639">                }</span>
+
+<span class="nc bnc" id="L641" title="All 2 branches missed.">                for (Dependency userDep : userDeclaredDeps) {</span>
+<span class="nc" id="L642">                    String key = userDep.getGroupId() + &quot;:&quot; + userDep.getArtifactId();</span>
+<span class="nc bnc" id="L643" title="All 2 branches missed.">                    if (existingDepsMap.containsKey(key)) {</span>
+                        // Replace existing dependency with user-declared one (overrides scope, version, etc.)
+<span class="nc" id="L645">                        pluginDeps.remove(existingDepsMap.get(key));</span>
+<span class="nc" id="L646">                        PluginLogManager.getLog()</span>
+<span class="nc" id="L647">                                .debug(String.format(</span>
+                                        &quot;Overriding plugin dependency %s with user-declared dependency (scope: %s -&gt; %s)&quot;,
+<span class="nc" id="L649">                                        key, existingDepsMap.get(key).getScope(), userDep.getScope()));</span>
+                    } else {
+<span class="nc" id="L651">                        PluginLogManager.getLog()</span>
+<span class="nc" id="L652">                                .debug(String.format(</span>
+                                        &quot;Adding user-declared dependency %s to plugin %s&quot;,
+<span class="nc" id="L654">                                        key, pluginProject.getArtifact()));</span>
+                    }
+<span class="nc" id="L656">                    pluginDeps.add(userDep);</span>
+<span class="nc" id="L657">                }</span>
+<span class="nc" id="L658">                pluginProject.setDependencies(pluginDeps);</span>
+<span class="nc" id="L659">                PluginLogManager.getLog()</span>
+<span class="nc" id="L660">                        .debug(String.format(</span>
+                                &quot;Plugin %s now has %d dependencies after merging user-declared dependencies&quot;,
+<span class="nc" id="L662">                                pluginProject.getArtifact(), pluginDeps.size()));</span>
+            }
+
+            // Filter artifacts to &quot;compile+runtime&quot; scopes. Maven plugins require their runtime
+            // scope dependencies to be present alongside any compile-time dependencies.
+            // Test scope dependencies of plugins should be excluded.
+<span class="nc" id="L668">            ArtifactFilter filter = new ScopeArtifactFilter(&quot;compile+runtime&quot;);</span>
+<span class="nc" id="L669">            DependencyGraph dependencyGraph = createDependencyGraph(</span>
+                    pluginProject,
+                    session,
+                    repositories,
+                    dependencyCollectorBuilder,
+                    checksumCalculator,
+                    filter,
+                    false);
+
+<span class="nc bnc" id="L678" title="All 4 branches missed.">            if (config.isIncludeParentPom() || config.isIncludeBoms()) {</span>
+<span class="nc" id="L679">                resolveParentsAndBomsForDependencies(dependencyGraph, session, pluginProject, checksumCalculator);</span>
+            }
+
+            // Get root dependency nodes (excluding the plugin project itself)
+<span class="nc" id="L683">            Set&lt;io.github.chains_project.maven_lockfile.graph.DependencyNode&gt; roots = dependencyGraph.getRoots();</span>
+<span class="nc" id="L684">            PluginLogManager.getLog()</span>
+<span class="nc" id="L685">                    .info(String.format(</span>
+<span class="nc" id="L686">                            &quot;Resolved %4d dependencies for plugin %s&quot;, roots.size(), pluginProject.getArtifact()));</span>
+<span class="nc" id="L687">            return roots;</span>
+
+<span class="nc" id="L689">        } catch (Exception e) {</span>
+<span class="nc" id="L690">            PluginLogManager.getLog()</span>
+<span class="nc" id="L691">                    .warn(</span>
+<span class="nc" id="L692">                            String.format(&quot;Could not resolve dependencies for plugin %s&quot;, pluginProject.getArtifact()),</span>
+                            e);
+<span class="nc" id="L694">            return Collections.emptySet();</span>
+        }
+    }
+
+    private static DependencyGraph createDependencyGraph(
+            MavenProject project,
+            MavenSession session,
+            List&lt;ArtifactRepository&gt; repositories,
+            DependencyCollectorBuilder dependencyCollectorBuilder,
+            AbstractChecksumCalculator checksumCalculator,
+            ArtifactFilter filter,
+            boolean reduced) {
+        try {
+<span class="nc" id="L707">            ProjectBuildingRequest buildingRequest =</span>
+<span class="nc" id="L708">                    new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());</span>
+<span class="nc" id="L709">            buildingRequest.setProject(project);</span>
+<span class="nc" id="L710">            buildingRequest.setRemoteRepositories(repositories);</span>
+
+<span class="nc" id="L712">            DependencyNode rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, filter);</span>
+
+<span class="nc" id="L714">            MutableGraph&lt;DependencyNode&gt; graph = GraphBuilder.directed().build();</span>
+<span class="nc" id="L715">            rootNode.accept(new GraphBuildingNodeVisitor(graph, project));</span>
+
+<span class="nc" id="L717">            PluginLogManager.getLog()</span>
+<span class="nc" id="L718">                    .info(String.format(</span>
+                            &quot;Resolved %4d dependencies for project %s&quot;,
+<span class="nc" id="L720">                            graph.nodes().size(), project.getArtifactId()));</span>
+
+            // Reactor-local SNAPSHOTs are rebuilt every run, so their checksums drift and
+            // are skipped during recording/validation.
+<span class="nc" id="L724">            return DependencyGraph.of(graph, checksumCalculator, reduced, reactorGavs(session));</span>
+<span class="nc" id="L725">        } catch (DependencyCollectorBuilderException e) {</span>
+<span class="nc" id="L726">            PluginLogManager.getLog().warn(&quot;Could not generate graph&quot;, e);</span>
+<span class="nc" id="L727">            return DependencyGraph.of(GraphBuilder.directed().build(), checksumCalculator, reduced, Set.of());</span>
+        }
+    }
+
+    /**
+     * Construct a Pom object containing a full tree of its parent POM references. These parent
+     * POMs may be relative to the project being built, or are specified from an external POM.
+     */
+    private static Pom constructRecursivePom(
+            MavenProject initialProject, MavenSession session, AbstractChecksumCalculator checksumCalculator) {
+<span class="nc" id="L737">        String checksumAlgorithm = checksumCalculator.getChecksumAlgorithm();</span>
+
+<span class="nc" id="L739">        BomResolver bomResolver =</span>
+<span class="nc" id="L740">                new BomResolver(session, initialProject.getRemoteArtifactRepositories(), checksumCalculator);</span>
+<span class="nc" id="L741">        Set&lt;String&gt; reactorGavs = reactorGavs(session);</span>
+<span class="nc" id="L742">        List&lt;MavenProject&gt; recursiveProjects = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L743">        MavenProject currentProject = initialProject;</span>
+<span class="nc" id="L744">        recursiveProjects.add(currentProject);</span>
+<span class="nc bnc" id="L745" title="All 2 branches missed.">        while (currentProject.hasParent()) {</span>
+<span class="nc" id="L746">            currentProject = currentProject.getParent();</span>
+<span class="nc" id="L747">            recursiveProjects.add(currentProject);</span>
+        }
+
+        @SuppressWarnings(&quot;deprecation&quot;)
+<span class="nc" id="L751">        Path localRepoBasePath =</span>
+<span class="nc" id="L752">                session.getRepositorySession().getLocalRepository().getBasedir().toPath();</span>
+
+<span class="nc" id="L754">        Pom lastPom = null;</span>
+<span class="nc" id="L755">        Collections.reverse(recursiveProjects);</span>
+<span class="nc bnc" id="L756" title="All 2 branches missed.">        for (MavenProject project : recursiveProjects) {</span>
+<span class="nc" id="L757">            boolean cachedInLocalRepo =</span>
+<span class="nc bnc" id="L758" title="All 4 branches missed.">                    project.getFile() != null &amp;&amp; project.getFile().toPath().startsWith(localRepoBasePath);</span>
+<span class="nc bnc" id="L759" title="All 4 branches missed.">            boolean isExternalPom = project.getFile() == null || cachedInLocalRepo;</span>
+
+<span class="nc bnc" id="L761" title="All 2 branches missed.">            String relativePath = isExternalPom</span>
+<span class="nc" id="L762">                    ? null</span>
+<span class="nc" id="L763">                    : StreamSupport.stream(</span>
+                                    initialProject
+<span class="nc" id="L765">                                            .getBasedir()</span>
+<span class="nc" id="L766">                                            .toPath()</span>
+<span class="nc" id="L767">                                            .relativize(project.getFile().toPath())</span>
+<span class="nc" id="L768">                                            .spliterator(),</span>
+                                    false)
+<span class="nc" id="L770">                            .map(Path::toString)</span>
+<span class="nc" id="L771">                            .collect(Collectors.joining(&quot;/&quot;));</span>
+
+            String checksum;
+<span class="nc" id="L774">            ResolvedUrl resolved = null;</span>
+<span class="nc" id="L775">            RepositoryId repoId = null;</span>
+<span class="nc bnc" id="L776" title="All 2 branches missed.">            if (reactorGavs.contains(</span>
+<span class="nc" id="L777">                    project.getGroupId() + &quot;:&quot; + project.getArtifactId() + &quot;:&quot; + project.getVersion())) {</span>
+                // Reactor-local SNAPSHOT pom is rebuilt every run, so its checksum drifts
+                // and can't be pinned; leave it empty (releases still get a real checksum).
+<span class="nc" id="L780">                checksum = &quot;&quot;;</span>
+<span class="nc bnc" id="L781" title="All 2 branches missed.">            } else if (isExternalPom) {</span>
+                // External POM (not in project directory) - get repository information
+<span class="nc" id="L783">                Artifact artifact = project.getArtifact();</span>
+                // Use an explicit POM handler so getArtifactHandler().getExtension() reliably
+                // returns &quot;pom&quot;, which is required for parsing _remote.repositories correctly.
+<span class="nc" id="L786">                Artifact pomArtifact = new DefaultArtifact(</span>
+<span class="nc" id="L787">                        artifact.getGroupId(),</span>
+<span class="nc" id="L788">                        artifact.getArtifactId(),</span>
+<span class="nc" id="L789">                        artifact.getVersion(),</span>
+<span class="nc" id="L790">                        artifact.getScope(),</span>
+                        &quot;pom&quot;,
+<span class="nc" id="L792">                        artifact.getClassifier(),</span>
+                        new org.apache.maven.artifact.handler.DefaultArtifactHandler(&quot;pom&quot;));
+<span class="nc bnc" id="L794" title="All 2 branches missed.">                if (cachedInLocalRepo) {</span>
+                    // Pre-set the file so getArtifactResolvedField can read _remote.repositories
+                    // even if the POM-type dependency resolution fails
+<span class="nc" id="L797">                    pomArtifact.setFile(project.getFile());</span>
+<span class="nc" id="L798">                    checksum = checksumCalculator.calculatePomChecksum(</span>
+<span class="nc" id="L799">                            project.getFile().toPath());</span>
+                } else {
+<span class="nc" id="L801">                    checksum = checksumCalculator.calculateArtifactChecksum(pomArtifact);</span>
+                }
+<span class="nc" id="L803">                RepositoryInformation repoInfo = checksumCalculator.getArtifactResolvedField(pomArtifact);</span>
+<span class="nc" id="L804">                resolved = repoInfo.getResolvedUrl();</span>
+<span class="nc" id="L805">                repoId = repoInfo.getRepositoryId();</span>
+<span class="nc" id="L806">            } else {</span>
+<span class="nc" id="L807">                checksum = checksumCalculator.calculatePomChecksum(</span>
+<span class="nc" id="L808">                        project.getFile().toPath());</span>
+            }
+
+<span class="nc" id="L811">            Set&lt;Pom&gt; boms = bomResolver.resolveForProject(project);</span>
+<span class="nc" id="L812">            lastPom = new Pom(</span>
+<span class="nc" id="L813">                    GroupId.of(project.getGroupId()),</span>
+<span class="nc" id="L814">                    ArtifactId.of(project.getArtifactId()),</span>
+<span class="nc" id="L815">                    VersionNumber.of(project.getVersion()),</span>
+                    relativePath,
+                    resolved,
+                    repoId,
+                    checksumAlgorithm,
+                    checksum,
+                    lastPom);
+<span class="nc bnc" id="L822" title="All 2 branches missed.">            if (!boms.isEmpty()) {</span>
+<span class="nc" id="L823">                lastPom.setBoms(boms);</span>
+            }
+<span class="nc" id="L825">        }</span>
+
+<span class="nc" id="L827">        return lastPom;</span>
+    }
+
+    /**
+     * Resolve the BOM POMs for the current project.
+     *
+     * @param session            The Maven session
+     * @param rootProject        The current Maven project (for repository configuration)
+     * @param checksumCalculator The checksum calculator
+     * @return A set of BOM POMs
+     */
+    private static Set&lt;Pom&gt; resolveBoms(
+            MavenSession session, MavenProject rootProject, AbstractChecksumCalculator checksumCalculator) {
+<span class="nc" id="L840">        BomResolver bomResolver =</span>
+<span class="nc" id="L841">                new BomResolver(session, rootProject.getRemoteArtifactRepositories(), checksumCalculator);</span>
+<span class="nc" id="L842">        return bomResolver.resolveForProject(rootProject);</span>
+    }
+
+    private static boolean isSpecialVersion(String version) {
+<span class="nc bnc" id="L846" title="All 4 branches missed.">        return &quot;RELEASE&quot;.equals(version) || &quot;LATEST&quot;.equals(version);</span>
+    }
+
+    /**
+     * GAVs of the SNAPSHOT modules built in the current reactor. If there's only one
+     * project, it's the root project the pom is being generated for, not a sibling module.
+     */
+    static Set&lt;String&gt; reactorGavs(MavenSession session) {
+<span class="nc" id="L854">        List&lt;MavenProject&gt; projects = session.getProjects();</span>
+<span class="nc bnc" id="L855" title="All 2 branches missed.">        if (projects.size() &lt;= 1) {</span>
+<span class="nc" id="L856">            return Set.of();</span>
+        }
+<span class="nc" id="L858">        return projects.stream()</span>
+<span class="nc" id="L859">                .filter(p -&gt; ArtifactUtils.isSnapshot(p.getVersion()))</span>
+<span class="nc" id="L860">                .map(p -&gt; p.getGroupId() + &quot;:&quot; + p.getArtifactId() + &quot;:&quot; + p.getVersion())</span>
+<span class="nc" id="L861">                .collect(Collectors.toSet());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

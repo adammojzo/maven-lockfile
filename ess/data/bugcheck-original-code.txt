@@ -1,0 +1,37 @@
+# Nove testy spustene proti POVODNEMU produkcnemu kodu (commit d612dce, bez opravy)
+# ProjectBuilderTest vynechany: pouziva novy konstruktor z casti o optimalizacii
+# prikaz: ./mvnw -B test
+
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.105 s -- in io.github.chains_project.maven_lockfile.ValidateMojoTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.109 s -- in io.github.chains_project.maven_lockfile.recorder.DynamicResolutionStoreTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.154 s -- in io.github.chains_project.maven_lockfile.resolvers.BomResolverTest$PropertyInterpolationTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in io.github.chains_project.maven_lockfile.resolvers.BomResolverTest$NoBomsToResolveTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.170 s -- in io.github.chains_project.maven_lockfile.resolvers.BomResolverTest
+[ERROR] Tests run: 7, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.336 s <<< FAILURE! -- in io.github.chains_project.maven_lockfile.FreezeDependencyMojoTest
+[ERROR] io.github.chains_project.maven_lockfile.FreezeDependencyMojoTest.classifierVariantsOfTheSameArtifactAreAllManaged -- Time elapsed: 0.021 s <<< FAILURE!
+Expecting actual:
+  ["linux-x86_64"]
+to contain exactly in any order:
+  ["linux-x86_64", "linux-aarch_64"]
+but could not find the following elements:
+  ["linux-aarch_64"]
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.117 s -- in io.github.chains_project.maven_lockfile.reporting.ValidationPhasesTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in io.github.chains_project.maven_lockfile.reporting.LockFileDifferenceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.321 s -- in io.github.chains_project.maven_lockfile.checksum.RemoteChecksumCalculatorTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in io.github.chains_project.maven_lockfile.checksum.PomChecksumTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in io.github.chains_project.maven_lockfile.checksum.FileSystemChecksumCalculatorTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in io.github.chains_project.maven_lockfile.AbstractLockfileMojoTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in io.github.chains_project.maven_lockfile.data.GroupIdTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.028 s -- in io.github.chains_project.maven_lockfile.data.ConfigTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.013 s -- in io.github.chains_project.maven_lockfile.data.MavenPluginTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in io.github.chains_project.maven_lockfile.data.MavenScopeTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in io.github.chains_project.maven_lockfile.data.MavenExtensionTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in io.github.chains_project.maven_lockfile.data.ArtifactIdTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in io.github.chains_project.maven_lockfile.data.VersionNumberTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.137 s -- in io.github.chains_project.maven_lockfile.JsonUtilsTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.058 s -- in io.github.chains_project.maven_lockfile.graph.DependencyGraphTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in io.github.chains_project.maven_lockfile.graph.LockfileTest
+[INFO] Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.022 s -- in io.github.chains_project.maven_lockfile.graph.LockFileEqualityTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in org.apache.maven.shared.dependency.graph.internal.SpyingDependencyNodeUtilsTest
+[ERROR] Tests run: 116, Failures: 1, Errors: 0, Skipped: 0
+[INFO] BUILD FAILURE

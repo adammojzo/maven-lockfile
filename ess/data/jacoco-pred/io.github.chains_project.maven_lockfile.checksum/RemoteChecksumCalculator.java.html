@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RemoteChecksumCalculator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.checksum</a> &gt; <span class="el_source">RemoteChecksumCalculator.java</span></div><h1>RemoteChecksumCalculator.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.checksum;
+
+import com.google.common.io.BaseEncoding;
+import io.github.chains_project.maven_lockfile.data.RepositoryId;
+import io.github.chains_project.maven_lockfile.data.ResolvedUrl;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.project.ProjectBuildingRequest;
+
+public class RemoteChecksumCalculator extends AbstractChecksumCalculator {
+
+    private final ProjectBuildingRequest artifactBuildingRequest;
+    private final ProjectBuildingRequest pluginBuildingRequest;
+    private final HttpClient httpClient;
+<span class="fc" id="L33">    private final Map&lt;String, String&gt; checksumCache = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L34">    private final Map&lt;String, RepositoryInformation&gt; resolvedCache = new ConcurrentHashMap&lt;&gt;();</span>
+
+    public RemoteChecksumCalculator(
+            String checksumAlgorithm,
+            ProjectBuildingRequest artifactBuildingRequest,
+            ProjectBuildingRequest pluginBuildingRequest) {
+<span class="fc" id="L40">        super(checksumAlgorithm);</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">        if (!(checksumAlgorithm.equals(&quot;MD5&quot;)</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">                || checksumAlgorithm.equals(&quot;SHA-1&quot;)</span>
+<span class="pc bpc" id="L43" title="1 of 2 branches missed.">                || checksumAlgorithm.equals(&quot;SHA-256&quot;)</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">                || checksumAlgorithm.equals(&quot;SHA-512&quot;))) {</span>
+<span class="nc" id="L45">            throw new IllegalArgumentException(&quot;Invalid checksum algorithm '&quot; + checksumAlgorithm</span>
+                    + &quot;', remote repositories only supports MD5, SHA-1, SHA-256 or SHA-512.&quot;);
+        }
+
+<span class="fc" id="L49">        this.artifactBuildingRequest = artifactBuildingRequest;</span>
+<span class="fc" id="L50">        this.pluginBuildingRequest = pluginBuildingRequest;</span>
+<span class="fc" id="L51">        this.httpClient = HttpClient.newBuilder()</span>
+<span class="fc" id="L52">                .followRedirects(HttpClient.Redirect.ALWAYS)</span>
+<span class="fc" id="L53">                .build();</span>
+<span class="fc" id="L54">    }</span>
+
+    private String getCacheKey(Artifact artifact) {
+<span class="fc" id="L57">        String classifier = artifact.getClassifier();</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (classifier == null) {</span>
+<span class="fc" id="L59">            classifier = &quot;&quot;;</span>
+        }
+<span class="fc" id="L61">        return artifact.getGroupId() + &quot;:&quot; + artifact.getArtifactId() + &quot;:&quot; + artifact.getVersion() + &quot;:&quot; + classifier</span>
+<span class="fc" id="L62">                + &quot;:&quot; + artifact.getType();</span>
+    }
+
+    private Optional&lt;String&gt; calculateChecksumInternal(Artifact artifact, ProjectBuildingRequest buildingRequest) {
+<span class="fc" id="L66">        String cacheKey = getCacheKey(artifact) + &quot;:&quot; + checksumAlgorithm;</span>
+<span class="fc" id="L67">        String cached = checksumCache.get(cacheKey);</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        if (cached != null) {</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">            return cached.isEmpty() ? Optional.empty() : Optional.of(cached);</span>
+        }
+
+        try {
+<span class="fc" id="L73">            String groupId = artifact.getGroupId().replace(&quot;.&quot;, &quot;/&quot;);</span>
+<span class="fc" id="L74">            String artifactId = artifact.getArtifactId();</span>
+<span class="fc" id="L75">            String version = artifact.getVersion();</span>
+<span class="fc" id="L76">            String baseVersion = artifact.getBaseVersion();</span>
+<span class="fc" id="L77">            String classifier = artifact.getClassifier();</span>
+<span class="pc bpc" id="L78" title="3 of 4 branches missed.">            if (classifier != null &amp;&amp; !classifier.isEmpty()) {</span>
+<span class="nc" id="L79">                classifier = &quot;-&quot; + classifier;</span>
+            } else {
+<span class="fc" id="L81">                classifier = &quot;&quot;;</span>
+            }
+<span class="fc" id="L83">            String extension = artifact.getArtifactHandler().getExtension();</span>
+<span class="fc" id="L84">            String filename = artifactId + &quot;-&quot; + version + classifier + &quot;.&quot; + extension;</span>
+
+<span class="fc" id="L86">            BaseEncoding baseEncoding = BaseEncoding.base16();</span>
+
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            for (ArtifactRepository repository : buildingRequest.getRemoteRepositories()) {</span>
+<span class="fc" id="L89">                String artifactUrl = repository.getUrl().replaceAll(&quot;/$&quot;, &quot;&quot;) + &quot;/&quot; + groupId + &quot;/&quot; + artifactId + &quot;/&quot;</span>
+                        + baseVersion + &quot;/&quot; + filename;
+<span class="fc" id="L91">                String checksumUrl =</span>
+<span class="fc" id="L92">                        artifactUrl + &quot;.&quot; + checksumAlgorithm.toLowerCase().replace(&quot;-&quot;, &quot;&quot;);</span>
+
+<span class="fc" id="L94">                PluginLogManager.getLog().debug(String.format(&quot;Checking: %s&quot;, checksumUrl));</span>
+
+<span class="fc" id="L96">                HttpRequest checksumRequest = addAuth(HttpRequest.newBuilder().uri(URI.create(checksumUrl)), repository)</span>
+<span class="fc" id="L97">                        .build();</span>
+<span class="fc" id="L98">                HttpResponse&lt;String&gt; checksumResponse =</span>
+<span class="fc" id="L99">                        httpClient.send(checksumRequest, HttpResponse.BodyHandlers.ofString());</span>
+
+<span class="pc bpc" id="L101" title="2 of 4 branches missed.">                if (checksumResponse.statusCode() &gt;= 200 &amp;&amp; checksumResponse.statusCode() &lt; 300) {</span>
+<span class="nc" id="L102">                    String checksum = checksumResponse.body().strip();</span>
+<span class="nc" id="L103">                    checksumCache.put(cacheKey, checksum);</span>
+<span class="nc" id="L104">                    return Optional.of(checksum);</span>
+                }
+
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">                if (checksumResponse.statusCode() == 404) {</span>
+<span class="fc" id="L108">                    HttpRequest artifactRequest = addAuth(</span>
+<span class="fc" id="L109">                                    HttpRequest.newBuilder().uri(URI.create(artifactUrl)), repository)</span>
+<span class="fc" id="L110">                            .build();</span>
+<span class="fc" id="L111">                    HttpResponse&lt;byte[]&gt; artifactResponse =</span>
+<span class="fc" id="L112">                            httpClient.send(artifactRequest, HttpResponse.BodyHandlers.ofByteArray());</span>
+
+<span class="pc bpc" id="L114" title="2 of 4 branches missed.">                    if (artifactResponse.statusCode() &lt; 200 || artifactResponse.statusCode() &gt;= 300) {</span>
+<span class="nc" id="L115">                        continue;</span>
+                    }
+
+<span class="fc" id="L118">                    PluginLogManager.getLog()</span>
+<span class="fc" id="L119">                            .info(String.format(</span>
+                                    &quot;Unable to find %s checksum for %s on remote. Downloading and calculating locally.&quot;,
+                                    checksumAlgorithm, artifact));
+
+                    // Look first in standard repository manager headers as per
+                    // https://maven.apache.org/resolver/expected-checksums.html#non-standard-x-headers.
+                    // Fallback to verify downloaded artifact with SHA-1.
+<span class="fc" id="L126">                    var maybeVerificationChecksum = artifactResponse</span>
+<span class="fc" id="L127">                            .headers()</span>
+                            // curl -I https://repo1.maven.org/maven2/org/mvnpm/axios/1.15.1/axios-1.15.1.jar
+                            // x-checksum-sha1: 8161aecbad5fceb8ce4aca8b557be1a8b77b5cbe
+<span class="fc" id="L130">                            .firstValue(&quot;x-checksum-sha1&quot;)</span>
+<span class="fc" id="L131">                            .or(() -&gt; artifactResponse.headers().firstValue(&quot;x-goog-meta-checksum-sha1&quot;))</span>
+                            // Non-Maven Central or non-GCS hosted packages may not emit these headers
+                            // curl -I
+                            // https://plugins.gradle.org/m2/org/jmailen/gradle/kotlinter-gradle/5.3.0/kotlinter-gradle-5.3.0.jar
+<span class="fc" id="L135">                            .or(() -&gt; {</span>
+                                // Fall back to requesting .sha1 file
+<span class="fc" id="L137">                                PluginLogManager.getLog()</span>
+<span class="fc" id="L138">                                        .debug(String.format(</span>
+                                                &quot;Falling back to HTTP to find download integrity sha1 for %s&quot;,
+<span class="fc" id="L140">                                                artifact.getId()));</span>
+                                try {
+<span class="fc" id="L142">                                    HttpRequest artifactVerificationRequest = addAuth(</span>
+<span class="fc" id="L143">                                                    HttpRequest.newBuilder().uri(URI.create(artifactUrl + &quot;.sha1&quot;)),</span>
+                                                    repository)
+<span class="fc" id="L145">                                            .build();</span>
+<span class="fc" id="L146">                                    HttpResponse&lt;String&gt; artifactVerificationResponse = httpClient.send(</span>
+<span class="fc" id="L147">                                            artifactVerificationRequest, HttpResponse.BodyHandlers.ofString());</span>
+
+                                    // Extract first part of string to handle sha1sum format, `hash_in_hex
+                                    // /path/to/file`.
+                                    // For example provided by:
+                                    //
+                                    // https://repo.maven.apache.org/maven2/com/martiansoftware/jsap/2.1/jsap-2.1.jar.sha1
+                                    //
+                                    // https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.jar.sha1
+
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">                                    if (artifactVerificationResponse.statusCode() &gt;= 200</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">                                            &amp;&amp; artifactVerificationResponse.statusCode() &lt; 300) {</span>
+<span class="fc" id="L159">                                        String artifactVerification = artifactVerificationResponse</span>
+<span class="fc" id="L160">                                                .body()</span>
+<span class="fc" id="L161">                                                .strip();</span>
+<span class="fc" id="L162">                                        int spaceIndex = artifactVerification.indexOf(&quot; &quot;);</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">                                        artifactVerification = spaceIndex == -1</span>
+<span class="fc" id="L164">                                                ? artifactVerification</span>
+<span class="pc" id="L165">                                                : artifactVerification.substring(0, spaceIndex);</span>
+<span class="fc" id="L166">                                        return Optional.of(artifactVerification);</span>
+                                    }
+<span class="nc" id="L168">                                } catch (Exception ignored) {</span>
+<span class="nc" id="L169">                                }</span>
+<span class="nc" id="L170">                                return Optional.empty();</span>
+                            });
+
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">                    if (maybeVerificationChecksum.isPresent()) {</span>
+<span class="fc" id="L174">                        var verificationChecksum = maybeVerificationChecksum.get();</span>
+<span class="fc" id="L175">                        MessageDigest verificationMessageDigest = MessageDigest.getInstance(&quot;SHA-1&quot;);</span>
+<span class="fc" id="L176">                        String sha1 = baseEncoding</span>
+<span class="fc" id="L177">                                .encode(verificationMessageDigest.digest(artifactResponse.body()))</span>
+<span class="fc" id="L178">                                .toLowerCase(Locale.ROOT);</span>
+
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">                        if (!sha1.equalsIgnoreCase(verificationChecksum)) {</span>
+<span class="nc" id="L181">                            PluginLogManager.getLog()</span>
+<span class="nc" id="L182">                                    .error(String.format(&quot;Invalid SHA-1 checksum for: %s&quot;, artifactUrl));</span>
+<span class="nc" id="L183">                            throw new RuntimeException(&quot;Invalid SHA-1 checksum for '&quot; + artifact</span>
+                                    + &quot;'. Checksum found at '&quot; + artifactUrl
+                                    + &quot;.sha1' does not match calculated checksum of downloaded file. Remote checksum = '&quot;
+                                    + verificationChecksum + &quot;'. Locally calculated checksum = '&quot; + sha1 + &quot;'.&quot;);
+                        }
+<span class="fc" id="L188">                    } else {</span>
+<span class="nc" id="L189">                        PluginLogManager.getLog()</span>
+<span class="nc" id="L190">                                .warn(String.format(&quot;Unable to find SHA-1 to verify download of: %s&quot;, artifactUrl));</span>
+                    }
+
+<span class="fc" id="L193">                    MessageDigest messageDigest = MessageDigest.getInstance(checksumAlgorithm);</span>
+<span class="fc" id="L194">                    String checksum = baseEncoding</span>
+<span class="fc" id="L195">                            .encode(messageDigest.digest(artifactResponse.body()))</span>
+<span class="fc" id="L196">                            .toLowerCase(Locale.ROOT);</span>
+<span class="fc" id="L197">                    checksumCache.put(cacheKey, checksum);</span>
+<span class="fc" id="L198">                    return Optional.of(checksum);</span>
+                }
+                // Non-2xx, non-404: likely an authentication or server error — do not silently skip
+<span class="nc" id="L201">                PluginLogManager.getLog()</span>
+<span class="nc" id="L202">                        .warn(String.format(</span>
+                                &quot;HTTP %d fetching checksum from %s — verify credentials in settings.xml for repository '%s'&quot;,
+<span class="nc" id="L204">                                checksumResponse.statusCode(), checksumUrl, repository.getId()));</span>
+<span class="nc" id="L205">            }</span>
+
+<span class="nc" id="L207">            PluginLogManager.getLog()</span>
+<span class="nc" id="L208">                    .warn(String.format(</span>
+                            &quot;Artifact checksum `%s.%s` not found in any configured remote repository.&quot;,
+                            artifact, checksumAlgorithm));
+<span class="nc" id="L211">            checksumCache.put(cacheKey, &quot;&quot;);</span>
+<span class="nc" id="L212">            return Optional.empty();</span>
+<span class="nc" id="L213">        } catch (Exception e) {</span>
+<span class="nc" id="L214">            PluginLogManager.getLog()</span>
+<span class="nc" id="L215">                    .warn(String.format(&quot;Could not resolve artifact: %s&quot;, artifact.getArtifactId()), e);</span>
+<span class="nc" id="L216">            checksumCache.put(cacheKey, &quot;&quot;);</span>
+<span class="nc" id="L217">            return Optional.empty();</span>
+        }
+    }
+
+    private Optional&lt;RepositoryInformation&gt; getResolvedFieldInternal(
+            Artifact artifact, ProjectBuildingRequest buildingRequest) {
+<span class="fc" id="L223">        String cacheKey = getCacheKey(artifact);</span>
+<span class="fc" id="L224">        RepositoryInformation cached = resolvedCache.get(cacheKey);</span>
+<span class="pc bpc" id="L225" title="1 of 2 branches missed.">        if (cached != null) {</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">            return cached.equals(RepositoryInformation.Unresolved()) ? Optional.empty() : Optional.of(cached);</span>
+        }
+
+        try {
+<span class="fc" id="L230">            String groupId = artifact.getGroupId().replace(&quot;.&quot;, &quot;/&quot;);</span>
+<span class="fc" id="L231">            String artifactId = artifact.getArtifactId();</span>
+<span class="fc" id="L232">            String version = artifact.getVersion();</span>
+<span class="fc" id="L233">            String baseVersion = artifact.getBaseVersion();</span>
+<span class="fc" id="L234">            String classifier = artifact.getClassifier();</span>
+<span class="pc bpc" id="L235" title="2 of 4 branches missed.">            if (classifier != null &amp;&amp; !classifier.isEmpty()) {</span>
+<span class="nc" id="L236">                classifier = &quot;-&quot; + classifier;</span>
+            } else {
+<span class="fc" id="L238">                classifier = &quot;&quot;;</span>
+            }
+<span class="fc" id="L240">            String extension = artifact.getArtifactHandler().getExtension();</span>
+<span class="fc" id="L241">            String filename = artifactId + &quot;-&quot; + version + classifier + &quot;.&quot; + extension;</span>
+
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">            for (ArtifactRepository repository : buildingRequest.getRemoteRepositories()) {</span>
+<span class="fc" id="L244">                String url = repository.getUrl().replaceAll(&quot;/$&quot;, &quot;&quot;) + &quot;/&quot; + groupId + &quot;/&quot; + artifactId + &quot;/&quot;</span>
+                        + baseVersion + &quot;/&quot; + filename;
+
+<span class="fc" id="L247">                PluginLogManager.getLog().debug(String.format(&quot;Checking: %s&quot;, url));</span>
+
+<span class="fc" id="L249">                HttpRequest request = addAuth(</span>
+<span class="fc" id="L250">                                HttpRequest.newBuilder()</span>
+<span class="fc" id="L251">                                        .uri(URI.create(url))</span>
+<span class="fc" id="L252">                                        .method(&quot;HEAD&quot;, HttpRequest.BodyPublishers.noBody()),</span>
+                                repository)
+<span class="fc" id="L254">                        .build();</span>
+<span class="fc" id="L255">                HttpResponse&lt;Void&gt; response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());</span>
+
+<span class="pc bpc" id="L257" title="2 of 4 branches missed.">                if (response.statusCode() &gt;= 200 &amp;&amp; response.statusCode() &lt; 300) {</span>
+<span class="fc" id="L258">                    RepositoryInformation result =</span>
+<span class="fc" id="L259">                            new RepositoryInformation(ResolvedUrl.of(url), RepositoryId.of(repository.getId()));</span>
+<span class="fc" id="L260">                    resolvedCache.put(cacheKey, result);</span>
+<span class="fc" id="L261">                    return Optional.of(result);</span>
+                }
+<span class="nc" id="L263">            }</span>
+
+<span class="nc" id="L265">            PluginLogManager.getLog().warn(String.format(&quot;Artifact resolved url `%s` not found.&quot;, artifact));</span>
+<span class="nc" id="L266">            resolvedCache.put(cacheKey, RepositoryInformation.Unresolved());</span>
+<span class="nc" id="L267">            return Optional.empty();</span>
+<span class="nc" id="L268">        } catch (Exception e) {</span>
+<span class="nc" id="L269">            PluginLogManager.getLog()</span>
+<span class="nc" id="L270">                    .warn(String.format(&quot;Could not resolve url for artifact: %s&quot;, artifact.getArtifactId()), e);</span>
+<span class="nc" id="L271">            resolvedCache.put(cacheKey, RepositoryInformation.Unresolved());</span>
+<span class="nc" id="L272">            return Optional.empty();</span>
+        }
+    }
+
+    /**
+     * Adds HTTP Basic authentication credentials to the request builder if the repository has
+     * authentication configured. Maven decrypts settings.xml server passwords before plugin
+     * execution, so {@code repository.getAuthentication()} already contains plaintext credentials.
+     *
+     * @throws IllegalStateException if credentials are configured but the repository URL does not
+     *     use HTTPS, to prevent credential exposure over an unencrypted connection.
+     */
+    private HttpRequest.Builder addAuth(HttpRequest.Builder builder, ArtifactRepository repository) {
+<span class="fc" id="L285">        var auth = repository.getAuthentication();</span>
+<span class="pc bpc" id="L286" title="5 of 6 branches missed.">        if (auth != null &amp;&amp; auth.getUsername() != null &amp;&amp; !auth.getUsername().isEmpty()) {</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">            if (!repository.getUrl().toLowerCase(Locale.ROOT).startsWith(&quot;https://&quot;)) {</span>
+<span class="nc" id="L288">                throw new IllegalStateException(</span>
+<span class="nc" id="L289">                        &quot;Repository '&quot; + repository.getId() + &quot;' has credentials configured but uses a plain HTTP URL (&quot;</span>
+<span class="nc" id="L290">                                + repository.getUrl()</span>
+                                + &quot;). Refusing to send credentials over an unencrypted connection. &quot;
+                                + &quot;Change the repository URL to HTTPS.&quot;);
+            }
+<span class="nc bnc" id="L294" title="All 2 branches missed.">            String password = auth.getPassword() != null ? auth.getPassword() : &quot;&quot;;</span>
+<span class="nc" id="L295">            String encoded = Base64.getEncoder()</span>
+<span class="nc" id="L296">                    .encodeToString((auth.getUsername() + &quot;:&quot; + password).getBytes(StandardCharsets.UTF_8));</span>
+<span class="nc" id="L297">            PluginLogManager.getLog()</span>
+<span class="nc" id="L298">                    .debug(String.format(&quot;Using Basic auth credentials for repository: %s&quot;, repository.getId()));</span>
+<span class="nc" id="L299">            return builder.header(&quot;Authorization&quot;, &quot;Basic &quot; + encoded);</span>
+        }
+<span class="fc" id="L301">        return builder;</span>
+    }
+
+    @Override
+    public void prewarmArtifactCache(Collection&lt;Artifact&gt; artifacts) {
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        if (artifacts.isEmpty()) {</span>
+<span class="nc" id="L307">            return;</span>
+        }
+<span class="nc" id="L309">        int poolSize = Math.min(16, Math.max(4, Runtime.getRuntime().availableProcessors() * 2));</span>
+<span class="nc" id="L310">        PluginLogManager.getLog()</span>
+<span class="nc" id="L311">                .info(String.format(</span>
+                        &quot;Pre-warming checksum cache for %d unique artifacts with %d threads&quot;,
+<span class="nc" id="L313">                        artifacts.size(), poolSize));</span>
+<span class="nc" id="L314">        ExecutorService executor = Executors.newFixedThreadPool(poolSize);</span>
+        try {
+<span class="nc" id="L316">            List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">            for (var artifact : artifacts) {</span>
+<span class="nc" id="L318">                futures.add(executor.submit(() -&gt; {</span>
+<span class="nc" id="L319">                    calculateArtifactChecksum(artifact);</span>
+<span class="nc" id="L320">                    getArtifactResolvedField(artifact);</span>
+<span class="nc" id="L321">                }));</span>
+<span class="nc" id="L322">            }</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">            for (var future : futures) {</span>
+                try {
+<span class="nc" id="L325">                    future.get();</span>
+<span class="nc" id="L326">                } catch (Exception e) {</span>
+<span class="nc" id="L327">                    PluginLogManager.getLog().debug(&quot;Pre-warm task failed: &quot; + e.getMessage());</span>
+<span class="nc" id="L328">                }</span>
+<span class="nc" id="L329">            }</span>
+        } finally {
+<span class="nc" id="L331">            executor.shutdown();</span>
+        }
+<span class="nc" id="L333">    }</span>
+
+    @Override
+    public String calculateArtifactChecksum(Artifact artifact) {
+<span class="fc" id="L337">        return calculateChecksumInternal(artifact, artifactBuildingRequest).orElse(&quot;&quot;);</span>
+    }
+
+    @Override
+    public String calculatePluginChecksum(Artifact artifact) {
+<span class="nc" id="L342">        return calculateChecksumInternal(artifact, pluginBuildingRequest).orElse(&quot;&quot;);</span>
+    }
+
+    @Override
+    public String getDefaultChecksumAlgorithm() {
+<span class="nc" id="L347">        return &quot;SHA-256&quot;;</span>
+    }
+
+    @Override
+    public RepositoryInformation getArtifactResolvedField(Artifact artifact) {
+<span class="fc" id="L352">        return getResolvedFieldInternal(artifact, artifactBuildingRequest).orElse(RepositoryInformation.Unresolved());</span>
+    }
+
+    @Override
+    public RepositoryInformation getPluginResolvedField(Artifact artifact) {
+<span class="nc" id="L357">        return getResolvedFieldInternal(artifact, pluginBuildingRequest).orElse(RepositoryInformation.Unresolved());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

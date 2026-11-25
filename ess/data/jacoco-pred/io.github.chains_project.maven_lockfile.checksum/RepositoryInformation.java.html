@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RepositoryInformation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.checksum</a> &gt; <span class="el_source">RepositoryInformation.java</span></div><h1>RepositoryInformation.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.checksum;
+
+import io.github.chains_project.maven_lockfile.data.RepositoryId;
+import io.github.chains_project.maven_lockfile.data.ResolvedUrl;
+import java.util.Objects;
+
+public class RepositoryInformation {
+    private final ResolvedUrl resolvedUrl;
+    private final RepositoryId repositoryId;
+
+<span class="fc" id="L11">    public RepositoryInformation(ResolvedUrl resolvedUrl, RepositoryId repositoryId) {</span>
+<span class="fc" id="L12">        this.resolvedUrl = resolvedUrl;</span>
+<span class="fc" id="L13">        this.repositoryId = repositoryId;</span>
+<span class="fc" id="L14">    }</span>
+
+    public static RepositoryInformation Unresolved() {
+<span class="fc" id="L17">        return new RepositoryInformation(ResolvedUrl.Unresolved(), RepositoryId.None());</span>
+    }
+
+    /**
+     * @return the resolved url
+     */
+    public ResolvedUrl getResolvedUrl() {
+<span class="fc" id="L24">        return resolvedUrl;</span>
+    }
+
+    /**
+     * @return the repository id
+     */
+    public RepositoryId getRepositoryId() {
+<span class="fc" id="L31">        return repositoryId;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L36" title="All 2 branches missed.">        if (o == this) return true;</span>
+<span class="nc bnc" id="L37" title="All 2 branches missed.">        if (!(o instanceof RepositoryInformation)) {</span>
+<span class="nc" id="L38">            return false;</span>
+        }
+<span class="nc" id="L40">        RepositoryInformation other = (RepositoryInformation) o;</span>
+<span class="nc bnc" id="L41" title="All 4 branches missed.">        return Objects.equals(resolvedUrl, other.resolvedUrl) &amp;&amp; Objects.equals(repositoryId, other.repositoryId);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L46">        return Objects.hash(resolvedUrl, repositoryId);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

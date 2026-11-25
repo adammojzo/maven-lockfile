@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DynamicResolutionStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.recorder</a> &gt; <span class="el_source">DynamicResolutionStore.java</span></div><h1>DynamicResolutionStore.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.recorder;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collection;
+import java.util.List;
+import java.util.TreeSet;
+
+/** Reads/writes the JSON file that hands artifacts off from {@link DynamicResolutionSpy} (a core extension) to {@code LockFileFacade} (a Mojo, different realm). */
+public final class DynamicResolutionStore {
+
+<span class="fc" id="L17">    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();</span>
+<span class="fc" id="L18">    private static final Type LIST_TYPE = new TypeToken&lt;List&lt;RecordedArtifact&gt;&gt;() {}.getType();</span>
+
+    private DynamicResolutionStore() {}
+
+    public static Path defaultPath(Path multiModuleProjectDirectory) {
+<span class="fc" id="L23">        return multiModuleProjectDirectory</span>
+<span class="fc" id="L24">                .resolve(&quot;target&quot;)</span>
+<span class="fc" id="L25">                .resolve(&quot;maven-lockfile&quot;)</span>
+<span class="fc" id="L26">                .resolve(&quot;dynamic-resolutions.json&quot;);</span>
+    }
+
+    public static void write(Path path, Collection&lt;RecordedArtifact&gt; artifacts) throws IOException {
+<span class="fc" id="L30">        Files.createDirectories(path.getParent());</span>
+<span class="fc" id="L31">        Files.writeString(path, GSON.toJson(new TreeSet&lt;&gt;(artifacts), LIST_TYPE));</span>
+<span class="fc" id="L32">    }</span>
+
+    public static List&lt;RecordedArtifact&gt; read(Path path) throws IOException {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (!Files.exists(path)) {</span>
+<span class="fc" id="L36">            return List.of();</span>
+        }
+<span class="fc" id="L38">        List&lt;RecordedArtifact&gt; result = GSON.fromJson(Files.readString(path), LIST_TYPE);</span>
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">        return result == null ? List.of() : result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

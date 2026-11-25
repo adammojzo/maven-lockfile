@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DependencyNode.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.graph</a> &gt; <span class="el_source">DependencyNode.java</span></div><h1>DependencyNode.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.graph;
+
+import com.google.gson.annotations.Expose;
+import io.github.chains_project.maven_lockfile.data.ArtifactId;
+import io.github.chains_project.maven_lockfile.data.ArtifactType;
+import io.github.chains_project.maven_lockfile.data.Classifier;
+import io.github.chains_project.maven_lockfile.data.GroupId;
+import io.github.chains_project.maven_lockfile.data.MavenScope;
+import io.github.chains_project.maven_lockfile.data.Pom;
+import io.github.chains_project.maven_lockfile.data.RepositoryId;
+import io.github.chains_project.maven_lockfile.data.ResolvedUrl;
+import io.github.chains_project.maven_lockfile.data.VersionNumber;
+import java.util.*;
+
+/**
+ * This class represents a node in the dependency graph. It contains the artifactId, groupId and version  of the dependency.
+ * It also contains a reference to the parent node.
+ */
+public class DependencyNode implements Comparable&lt;DependencyNode&gt; {
+
+    private final GroupId groupId;
+    private final ArtifactId artifactId;
+    private final VersionNumber version;
+    private final Classifier classifier;
+    private final ArtifactType type;
+    private final String checksumAlgorithm;
+    private final String checksum;
+    private final MavenScope scope;
+    private final ResolvedUrl resolved;
+    private final RepositoryId repositoryId;
+    private Pom parentPom;
+
+    private String selectedVersion;
+
+    private boolean included;
+
+    NodeId id;
+
+    @Expose(serialize = false, deserialize = false)
+    private NodeId parent;
+
+    private final Set&lt;DependencyNode&gt; children;
+
+    private Set&lt;Pom&gt; boms;
+
+    DependencyNode(
+            ArtifactId artifactId,
+            GroupId groupId,
+            VersionNumber version,
+            Classifier classifier,
+            ArtifactType type,
+            MavenScope scope,
+            ResolvedUrl resolved,
+            RepositoryId repositoryId,
+            String checksumAlgorithm,
+<span class="fc" id="L56">            String checksum) {</span>
+<span class="fc" id="L57">        this.artifactId = artifactId;</span>
+<span class="fc" id="L58">        this.groupId = groupId;</span>
+<span class="fc" id="L59">        this.version = version;</span>
+<span class="fc" id="L60">        this.classifier = classifier;</span>
+<span class="fc" id="L61">        this.type = type;</span>
+<span class="fc" id="L62">        this.checksumAlgorithm = checksumAlgorithm;</span>
+<span class="fc" id="L63">        this.checksum = checksum;</span>
+<span class="fc" id="L64">        this.children = new TreeSet&lt;&gt;(Comparator.comparing(DependencyNode::getComparatorString));</span>
+<span class="fc" id="L65">        this.id = new NodeId(groupId, artifactId, version);</span>
+<span class="fc" id="L66">        this.scope = scope;</span>
+<span class="fc" id="L67">        this.resolved = resolved;</span>
+<span class="fc" id="L68">        this.repositoryId = repositoryId;</span>
+<span class="fc" id="L69">        this.boms = new TreeSet&lt;&gt;();</span>
+<span class="fc" id="L70">    }</span>
+
+    /** Builds a standalone, childless node - e.g. an artifact discovered outside the normal graph walk. */
+    public static DependencyNode of(
+            ArtifactId artifactId,
+            GroupId groupId,
+            VersionNumber version,
+            Classifier classifier,
+            ArtifactType type,
+            MavenScope scope,
+            ResolvedUrl resolved,
+            RepositoryId repositoryId,
+            String checksumAlgorithm,
+            String checksum) {
+<span class="fc" id="L84">        return new DependencyNode(</span>
+                artifactId,
+                groupId,
+                version,
+                classifier,
+                type,
+                scope,
+                resolved,
+                repositoryId,
+                checksumAlgorithm,
+                checksum);
+    }
+    /**
+     * @return the artifactId
+     */
+    public ArtifactId getArtifactId() {
+<span class="fc" id="L100">        return artifactId;</span>
+    }
+    /**
+     * @return the groupId
+     */
+    public GroupId getGroupId() {
+<span class="fc" id="L106">        return groupId;</span>
+    }
+    /**
+     * @return the parent
+     */
+    public NodeId getParent() {
+<span class="fc" id="L112">        return parent;</span>
+    }
+    /**
+     * @return the version
+     */
+    public VersionNumber getVersion() {
+<span class="fc" id="L118">        return version;</span>
+    }
+    /**
+     * @return the classifier or null if not present
+     */
+    public Classifier getClassifier() {
+<span class="fc" id="L124">        return classifier;</span>
+    }
+    /**
+     * @return the artifact type or null if default (jar)
+     */
+    public ArtifactType getType() {
+<span class="fc" id="L130">        return type;</span>
+    }
+    /**
+     * @return the scope
+     */
+    public MavenScope getScope() {
+<span class="fc" id="L136">        return scope;</span>
+    }
+    /**
+     * @return the resolved url.
+     */
+    public ResolvedUrl getResolved() {
+<span class="fc" id="L142">        return resolved;</span>
+    }
+    /**
+     * @return the repository id.
+     */
+    public RepositoryId getRepositoryId() {
+<span class="fc" id="L148">        return repositoryId;</span>
+    }
+    /**
+     * @return the BOM POMs.
+     */
+    public Set&lt;Pom&gt; getBoms() {
+<span class="fc" id="L154">        return boms;</span>
+    }
+
+    void addChild(DependencyNode child) {
+<span class="fc" id="L158">        children.add(child);</span>
+<span class="fc" id="L159">        child.setParent(id);</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">        if (!child.parent.equals(id)) {</span>
+<span class="nc" id="L161">            throw new IllegalStateException(&quot;Child node has wrong parent&quot;);</span>
+        }
+<span class="fc" id="L163">    }</span>
+
+    void setParent(NodeId parent) {
+<span class="fc" id="L166">        this.parent = parent;</span>
+<span class="fc" id="L167">    }</span>
+
+    public void setBoms(Set&lt;Pom&gt; boms) {
+<span class="fc" id="L170">        this.boms = boms;</span>
+<span class="fc" id="L171">    }</span>
+
+    /**
+     * @return the children
+     */
+    public Set&lt;DependencyNode&gt; getChildren() {
+<span class="fc" id="L177">        return Collections.unmodifiableSet(children);</span>
+    }
+
+    /**
+     * @return the checksum
+     */
+    public String getChecksum() {
+<span class="fc" id="L184">        return checksum;</span>
+    }
+    /**
+     * @return the checksumAlgorithm
+     */
+    public String getChecksumAlgorithm() {
+<span class="fc" id="L190">        return checksumAlgorithm;</span>
+    }
+    /**
+     * @param baseVersion the baseVersion to set
+     */
+    public void setSelectedVersion(String baseVersion) {
+<span class="fc" id="L196">        this.selectedVersion = baseVersion;</span>
+<span class="fc" id="L197">    }</span>
+    /**
+     * @return the baseVersion
+     */
+    public String getSelectedVersion() {
+<span class="fc" id="L202">        return selectedVersion;</span>
+    }
+
+    /**
+     * @param included the state of inclusion
+     */
+    public void setIncluded(boolean included) {
+<span class="fc" id="L209">        this.included = included;</span>
+<span class="fc" id="L210">    }</span>
+
+    /**
+     * @return the state of inclusion
+     */
+    public boolean isIncluded() {
+<span class="fc" id="L216">        return included;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L221">        return Objects.hash(</span>
+                groupId,
+                artifactId,
+                version,
+                classifier,
+                type,
+                checksumAlgorithm,
+                checksum,
+                scope,
+                selectedVersion,
+                id,
+                parent,
+                children,
+                boms,
+                parentPom);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        if (this == obj) {</span>
+<span class="fc" id="L241">            return true;</span>
+        }
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">        if (!(obj instanceof DependencyNode)) {</span>
+<span class="nc" id="L244">            return false;</span>
+        }
+<span class="fc" id="L246">        DependencyNode other = (DependencyNode) obj;</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">        return Objects.equals(groupId, other.groupId)</span>
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(artifactId, other.artifactId)</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(version, other.version)</span>
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(classifier, other.classifier)</span>
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(type, other.type)</span>
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(checksumAlgorithm, other.checksumAlgorithm)</span>
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(checksum, other.checksum)</span>
+<span class="pc bpc" id="L254" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(scope, other.scope)</span>
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(selectedVersion, other.selectedVersion)</span>
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(id, other.id)</span>
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(parent, other.parent)</span>
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(children, other.children)</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(boms, other.boms)</span>
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(parentPom, other.parentPom);</span>
+    }
+
+    @Override
+    public int compareTo(DependencyNode o) {
+<span class="fc" id="L265">        int groupIdCompare = groupId.compareTo(o.groupId);</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">        if (groupIdCompare != 0) {</span>
+<span class="fc" id="L267">            return groupIdCompare;</span>
+        }
+<span class="fc" id="L269">        int artifactIdCompare = artifactId.compareTo(o.artifactId);</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">        if (artifactIdCompare != 0) {</span>
+<span class="nc" id="L271">            return artifactIdCompare;</span>
+        }
+<span class="fc" id="L273">        int versionCompare = version.compareTo(o.version);</span>
+<span class="pc bpc" id="L274" title="1 of 2 branches missed.">        if (versionCompare != 0) {</span>
+<span class="nc" id="L275">            return versionCompare;</span>
+        }
+<span class="pc bpc" id="L277" title="1 of 2 branches missed.">        if (classifier == null) {</span>
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">            if (o.classifier == null) {</span>
+<span class="fc" id="L279">                return 0;</span>
+            }
+<span class="nc" id="L281">            return -1;</span>
+        }
+<span class="nc bnc" id="L283" title="All 2 branches missed.">        if (o.classifier == null) {</span>
+<span class="nc" id="L284">            return 1;</span>
+        }
+<span class="nc" id="L286">        return classifier.compareTo(o.classifier);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L291">        return &quot;DependencyNode [groupId=&quot; + groupId + &quot;, artifactId=&quot; + artifactId + &quot;, version=&quot; + version</span>
+                + &quot;, classifier=&quot; + classifier + &quot;, type=&quot; + type + &quot;, checksumAlgorithm=&quot; + checksumAlgorithm
+                + &quot;, checksum=&quot; + checksum + &quot;, scope=&quot; + scope + &quot;, resolved=&quot; + resolved + &quot;, repositoryId=&quot;
+                + repositoryId + &quot;, selectedVersion=&quot; + selectedVersion + &quot;, id=&quot; + id + &quot;, parent=&quot; + parent
+                + &quot;, children=&quot; + children + &quot;, boms=&quot; + boms + &quot;, parentPom=&quot; + parentPom + &quot;]&quot;;
+    }
+
+    public String getComparatorString() {
+<span class="fc" id="L299">        return this.getGroupId().getValue() + &quot;#&quot; + this.getArtifactId().getValue() + &quot;#&quot;</span>
+<span class="fc" id="L300">                + this.getVersion().getValue() + &quot;#&quot; + this.getChecksum();</span>
+    }
+
+    public Pom getParentPom() {
+<span class="fc" id="L304">        return parentPom;</span>
+    }
+
+    public void setParentPom(Pom parentPom) {
+<span class="fc" id="L308">        this.parentPom = parentPom;</span>
+<span class="fc" id="L309">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

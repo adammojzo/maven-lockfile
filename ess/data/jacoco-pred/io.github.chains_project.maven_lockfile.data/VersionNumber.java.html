@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VersionNumber.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">VersionNumber.java</span></div><h1>VersionNumber.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import com.google.common.base.Strings;
+import java.util.Objects;
+
+public class VersionNumber implements Comparable&lt;VersionNumber&gt; {
+    public static VersionNumber of(String versionNumber) {
+<span class="fc" id="L8">        String checked = Objects.requireNonNull(versionNumber);</span>
+<span class="pc bpc" id="L9" title="1 of 2 branches missed.">        if (Strings.isNullOrEmpty(checked)) {</span>
+<span class="nc" id="L10">            throw new IllegalArgumentException(&quot;versionNumber cannot be empty&quot;);</span>
+        }
+<span class="fc" id="L12">        return new VersionNumber(versionNumber);</span>
+    }
+
+    private final String value;
+
+<span class="fc" id="L17">    private VersionNumber(String versionNumber) {</span>
+<span class="fc" id="L18">        this.value = Objects.requireNonNull(versionNumber, &quot;versionNumber is marked non-null but is null&quot;);</span>
+<span class="fc" id="L19">    }</span>
+
+    public String getValue() {
+<span class="fc" id="L22">        return value;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L27">        return &quot;{&quot; + &quot; VersionNumber='&quot; + getValue() + &quot;'&quot; + &quot;}&quot;;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="fc bfc" id="L32" title="All 2 branches covered.">        if (o == this) return true;</span>
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">        if (!(o instanceof VersionNumber)) {</span>
+<span class="nc" id="L34">            return false;</span>
+        }
+<span class="fc" id="L36">        VersionNumber versionNumber = (VersionNumber) o;</span>
+<span class="fc" id="L37">        return Objects.equals(value, versionNumber.value);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L42">        return Objects.hashCode(value);</span>
+    }
+
+    @Override
+    public int compareTo(VersionNumber o) {
+<span class="fc" id="L47">        return this.value.compareTo(o.value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Classifier.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">Classifier.java</span></div><h1>Classifier.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import com.google.common.base.Strings;
+import java.util.Objects;
+
+/**
+ * A Maven artifact classifier is an optional and arbitrary string that gets appended to the generated artifact's name just after its version
+ * see https://www.baeldung.com/maven-artifact-classifiers
+ */
+public class Classifier implements Comparable&lt;Classifier&gt; {
+    public static Classifier of(String classifier) {
+<span class="nc bnc" id="L12" title="All 2 branches missed.">        if (Strings.isNullOrEmpty(classifier)) {</span>
+<span class="nc" id="L13">            return null;</span>
+        }
+<span class="nc" id="L15">        return new Classifier(classifier);</span>
+    }
+
+    private final String value;
+
+<span class="nc" id="L20">    private Classifier(String classifier) {</span>
+<span class="nc" id="L21">        this.value = Objects.requireNonNull(classifier, &quot;classifier is marked non-null but is null&quot;);</span>
+<span class="nc" id="L22">    }</span>
+
+    public String getValue() {
+<span class="fc" id="L25">        return value;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L30">        return &quot;{&quot; + &quot; Classifier='&quot; + getValue() + &quot;'&quot; + &quot;}&quot;;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        if (o == this) return true;</span>
+<span class="nc bnc" id="L36" title="All 2 branches missed.">        if (!(o instanceof Classifier)) {</span>
+<span class="nc" id="L37">            return false;</span>
+        }
+<span class="nc" id="L39">        Classifier classifier = (Classifier) o;</span>
+<span class="nc" id="L40">        return Objects.equals(value, classifier.value);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L45">        return Objects.hashCode(value);</span>
+    }
+
+    @Override
+    public int compareTo(Classifier o) {
+<span class="nc" id="L50">        return this.value.compareTo(o.value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

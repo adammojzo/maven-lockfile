@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FreezeDependencyMojo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile</a> &gt; <span class="el_source">FreezeDependencyMojo.java</span></div><h1>FreezeDependencyMojo.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile;
+
+import io.github.chains_project.maven_lockfile.data.LockFile;
+import io.github.chains_project.maven_lockfile.data.MavenPlugin;
+import io.github.chains_project.maven_lockfile.graph.DependencyNode;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.*;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.DependencyManagement;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
+import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
+
+/**
+ * Freeze the dependencies of a project. Every dependency will be locked to a specific version.
+ * For this, every version of direct dependencies in the pom file will be replaced with the version from the lock file.
+ * This also adds all transitive dependencies from the lock file inside the dependencyManagement section.
+ * &lt;br&gt;
+ * &lt;b&gt; If there exists no lock file, this fails.&lt;/b&gt;
+ */
+@Mojo(
+        name = &quot;freeze&quot;,
+        defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
+        requiresDependencyResolution = ResolutionScope.COMPILE,
+        requiresOnline = true)
+<span class="fc" id="L41">public class FreezeDependencyMojo extends AbstractMojo {</span>
+
+    @Parameter(defaultValue = &quot;${project}&quot;, readonly = true, required = true)
+    private MavenProject project;
+
+    @Parameter(defaultValue = &quot;${session}&quot;, readonly = true, required = true)
+    private MavenSession session;
+
+    @Parameter(defaultValue = &quot;pom.lockfile.xml&quot;, property = &quot;pomLockfileOutput&quot;)
+    private String pomLockfileOutput;
+
+    @Parameter(defaultValue = &quot;lockfile.json&quot;, property = &quot;lockfileName&quot;)
+    private String lockfileName;
+
+    @Parameter(defaultValue = &quot;true&quot;, property = &quot;exactVersionStrings&quot;)
+    private String exactVersionStrings;
+
+    /**
+     * Freezes the dependencies of the project. Every dependency will be locked to a specific version.
+     *
+     * @throws MojoExecutionException if the lock file is invalid or could not be read.
+     */
+    public void execute() throws MojoExecutionException {
+<span class="fc" id="L64">        PluginLogManager.setLog(getLog());</span>
+<span class="fc" id="L65">        File pomFile = project.getFile();</span>
+<span class="fc" id="L66">        File pomLockFile = new File(project.getBasedir(), pomLockfileOutput);</span>
+        try {
+<span class="fc" id="L68">            LockFile lockFile = LockFile.readLockFile(LockFileFacade.getLockFilePath(project, lockfileName));</span>
+<span class="fc" id="L69">            List&lt;Dependency&gt; filteredDependencies = getNearestVersionDependency(lockFile);</span>
+<span class="fc" id="L70">            Model pomModel = readPomFile(pomFile);</span>
+<span class="fc" id="L71">            updateDependencies(pomModel, filteredDependencies);</span>
+<span class="fc" id="L72">            updatePlugins(pomModel, lockFile.getMavenPlugins());</span>
+<span class="fc" id="L73">            writePomLockFile(pomModel, pomLockFile);</span>
+<span class="fc" id="L74">        } catch (IOException | XmlPullParserException e) {</span>
+<span class="fc" id="L75">            throw new MojoExecutionException(&quot;Could not freeze versions&quot;, e);</span>
+<span class="fc" id="L76">        }</span>
+<span class="fc" id="L77">    }</span>
+
+    private Model readPomFile(File pomFile) throws IOException, XmlPullParserException {
+<span class="fc" id="L80">        try (FileReader fileReader = new FileReader(pomFile)) {</span>
+<span class="fc" id="L81">            MavenXpp3Reader reader = new MavenXpp3Reader();</span>
+<span class="fc" id="L82">            return reader.read(fileReader);</span>
+        }
+    }
+
+    private void updateDependencies(Model pomModel, List&lt;Dependency&gt; filteredDependencies) {
+<span class="fc" id="L87">        List&lt;Dependency&gt; pomDependencies = pomModel.getDependencies();</span>
+<span class="fc" id="L88">        DependencyManagement dependencyManagement = pomModel.getDependencyManagement();</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (dependencyManagement == null) {</span>
+<span class="fc" id="L90">            dependencyManagement = new DependencyManagement();</span>
+        }
+<span class="fc" id="L92">        List&lt;Dependency&gt; dependencyManagementDependencies = dependencyManagement.getDependencies();</span>
+<span class="fc" id="L93">        Map&lt;String, Dependency&gt; pomDependencyMap = createDependencyMap(pomDependencies);</span>
+<span class="fc" id="L94">        Map&lt;String, Dependency&gt; dependencyManagementMap = createDependencyMap(dependencyManagementDependencies);</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        for (Dependency dep : filteredDependencies) {</span>
+<span class="fc" id="L96">            String key = dependencyKey(dep);</span>
+<span class="fc" id="L97">            Dependency pomDependency = pomDependencyMap.get(key);</span>
+<span class="fc" id="L98">            Dependency dependencyManagementDep = dependencyManagementMap.get(key);</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">            if (pomDependency != null) {</span>
+<span class="fc" id="L100">                pomDependency.setVersion(dep.getVersion());</span>
+<span class="fc" id="L101">                pomDependency.setScope(dep.getScope());</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">            } else if (dependencyManagementDep != null) {</span>
+<span class="fc" id="L103">                dependencyManagementDep.setVersion(dep.getVersion());</span>
+            } else {
+<span class="fc" id="L105">                dependencyManagementDependencies.add(dep);</span>
+            }
+<span class="fc" id="L107">        }</span>
+<span class="fc" id="L108">        pomModel.setDependencies(pomDependencies);</span>
+<span class="fc" id="L109">        dependencyManagement.setDependencies(dependencyManagementDependencies);</span>
+<span class="fc" id="L110">        pomModel.setDependencyManagement(dependencyManagement);</span>
+<span class="fc" id="L111">    }</span>
+
+    private Map&lt;String, Dependency&gt; createDependencyMap(List&lt;Dependency&gt; dependencies) {
+<span class="fc" id="L114">        Map&lt;String, Dependency&gt; dependencyMap = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        for (Dependency dep : dependencies) {</span>
+<span class="fc" id="L116">            String key = dependencyKey(dep);</span>
+<span class="fc" id="L117">            dependencyMap.put(key, dep);</span>
+<span class="fc" id="L118">        }</span>
+<span class="fc" id="L119">        return dependencyMap;</span>
+    }
+
+    /**
+     * Identifies a dependency by groupId:artifactId, plus its classifier if it has one, so that
+     * classifier variants of the same artifact (e.g. per-platform natives) are frozen separately.
+     */
+    private static String dependencyKey(Dependency dep) {
+<span class="fc" id="L127">        String key = dep.getGroupId() + &quot;:&quot; + dep.getArtifactId();</span>
+<span class="fc" id="L128">        String classifier = dep.getClassifier();</span>
+<span class="pc bpc" id="L129" title="1 of 4 branches missed.">        return classifier == null || classifier.isEmpty() ? key : key + &quot;:&quot; + classifier;</span>
+    }
+
+    private void writePomLockFile(Model pomModel, File pomLockFile) throws IOException {
+<span class="fc" id="L133">        try (FileWriter fileWriter = new FileWriter(pomLockFile)) {</span>
+<span class="fc" id="L134">            MavenXpp3Writer writer = new MavenXpp3Writer();</span>
+<span class="fc" id="L135">            writer.write(fileWriter, pomModel);</span>
+        }
+<span class="fc" id="L137">    }</span>
+
+    private List&lt;Dependency&gt; getNearestVersionDependency(LockFile lockFileFromFile) {
+<span class="fc" id="L140">        var deps = lockFileFromFile.getDependencies();</span>
+<span class="fc" id="L141">        Map&lt;String, Dependency&gt; nearestVersionMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L142">        Queue&lt;DependencyNode&gt; depQueue = new ArrayDeque&lt;&gt;(deps);</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        while (!depQueue.isEmpty()) {</span>
+<span class="fc" id="L144">            var depNode = depQueue.poll();</span>
+<span class="fc" id="L145">            Dependency dep = toMavenDependency(depNode);</span>
+<span class="fc" id="L146">            String key = dependencyKey(dep);</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            if (depNode.isIncluded()) {</span>
+<span class="fc" id="L148">                nearestVersionMap.put(key, dep);</span>
+            }
+<span class="fc" id="L150">            depQueue.addAll(depNode.getChildren());</span>
+<span class="fc" id="L151">        }</span>
+<span class="fc" id="L152">        return new ArrayList&lt;&gt;(nearestVersionMap.values());</span>
+    }
+
+    /**
+     * Converts a DependencyNode to a Maven Model Dependency.
+     *
+     * @param dep the DependencyNode to convert
+     * @return the converted Dependency
+     */
+    private Dependency toMavenDependency(DependencyNode dep) {
+<span class="fc" id="L162">        Dependency mavenDep = new Dependency();</span>
+<span class="fc" id="L163">        mavenDep.setGroupId(dep.getGroupId().getValue());</span>
+<span class="fc" id="L164">        mavenDep.setArtifactId(dep.getArtifactId().getValue());</span>
+<span class="fc" id="L165">        String version = dep.getVersion().getValue();</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        if (exactVersionStrings.equals(&quot;true&quot;)) {</span>
+<span class="fc" id="L167">            version = convertSoftToExactVersionString(version);</span>
+        }
+<span class="fc" id="L169">        mavenDep.setVersion(version);</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        if (dep.getClassifier() != null) {</span>
+<span class="fc" id="L171">            mavenDep.setClassifier(dep.getClassifier().getValue());</span>
+        }
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (dep.getType() != null) {</span>
+<span class="nc" id="L174">            mavenDep.setType(dep.getType().getValue());</span>
+        }
+<span class="fc" id="L176">        mavenDep.setScope(dep.getScope().getValue());</span>
+<span class="fc" id="L177">        return mavenDep;</span>
+    }
+
+    /**
+     * Transform a soft version requirement into an exact one by wrapping it in a range which only includes .
+     */
+    private String convertSoftToExactVersionString(String version) {
+<span class="pc bpc" id="L184" title="1 of 4 branches missed.">        if (version.startsWith(&quot;[&quot;) || version.startsWith(&quot;(&quot;)) {</span>
+<span class="fc" id="L185">            getLog().warn(&quot;Version is already a range, '&quot; + version + &quot;'. Cannot reliably make exact for freeze pom.&quot;);</span>
+<span class="fc" id="L186">            return version;</span>
+        }
+<span class="fc" id="L188">        return &quot;[&quot; + version + &quot;]&quot;;</span>
+    }
+
+    /**
+     * Updates the plugins in the POM model with plugin dependencies from the lock file.
+     *
+     * @param pomModel the POM model to update
+     * @param mavenPlugins the set of Maven plugins from the lock file
+     */
+    private void updatePlugins(Model pomModel, Set&lt;MavenPlugin&gt; mavenPlugins) {
+<span class="pc bpc" id="L198" title="1 of 4 branches missed.">        if (mavenPlugins == null || mavenPlugins.isEmpty()) {</span>
+<span class="fc" id="L199">            return;</span>
+        }
+
+<span class="fc" id="L202">        Build build = pomModel.getBuild();</span>
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">        if (build == null) {</span>
+<span class="nc" id="L204">            build = new Build();</span>
+<span class="nc" id="L205">            pomModel.setBuild(build);</span>
+        }
+
+<span class="fc" id="L208">        List&lt;Plugin&gt; plugins = build.getPlugins();</span>
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">        if (plugins == null) {</span>
+<span class="nc" id="L210">            plugins = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L211">            build.setPlugins(plugins);</span>
+        }
+
+<span class="fc" id="L214">        Map&lt;String, Plugin&gt; existingPluginsMap = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L215" title="All 2 branches covered.">        for (Plugin plugin : plugins) {</span>
+<span class="fc" id="L216">            String key = plugin.getGroupId() + &quot;:&quot; + plugin.getArtifactId();</span>
+<span class="fc" id="L217">            existingPluginsMap.put(key, plugin);</span>
+<span class="fc" id="L218">        }</span>
+
+        // Process each plugin from the lock file
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        for (MavenPlugin mavenPlugin : mavenPlugins) {</span>
+<span class="fc" id="L222">            String key = mavenPlugin.getGroupId().getValue() + &quot;:&quot;</span>
+<span class="fc" id="L223">                    + mavenPlugin.getArtifactId().getValue();</span>
+<span class="fc" id="L224">            Plugin plugin = existingPluginsMap.get(key);</span>
+
+<span class="fc bfc" id="L226" title="All 2 branches covered.">            if (plugin == null) {</span>
+<span class="fc" id="L227">                getLog().warn(String.format(&quot;Plugin %s not found in POM, adding it.&quot;, key));</span>
+<span class="fc" id="L228">                plugin = new Plugin();</span>
+<span class="fc" id="L229">                plugin.setGroupId(mavenPlugin.getGroupId().getValue());</span>
+<span class="fc" id="L230">                plugin.setArtifactId(mavenPlugin.getArtifactId().getValue());</span>
+<span class="fc" id="L231">                plugins.add(plugin);</span>
+            }
+            // Pin the plugin to the version resolved in the lock file, otherwise Maven
+            // falls back to a default/latest version at build time and the frozen POM
+            // no longer reproduces the original build. Never written as a range: Maven
+            // does not resolve version ranges for plugins (MNG-3799, MNG-6351).
+<span class="fc" id="L237">            plugin.setVersion(mavenPlugin.getVersion().getValue());</span>
+
+            // Add plugin dependencies if they exist
+<span class="fc" id="L240">            Set&lt;DependencyNode&gt; pluginDependencies = mavenPlugin.getDependencies();</span>
+<span class="pc bpc" id="L241" title="1 of 4 branches missed.">            if (pluginDependencies != null &amp;&amp; !pluginDependencies.isEmpty()) {</span>
+<span class="fc" id="L242">                List&lt;Dependency&gt; dependencies = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L243">                Queue&lt;DependencyNode&gt; depQueue = new ArrayDeque&lt;&gt;(pluginDependencies);</span>
+
+<span class="fc bfc" id="L245" title="All 2 branches covered.">                while (!depQueue.isEmpty()) {</span>
+<span class="fc" id="L246">                    DependencyNode depNode = depQueue.poll();</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">                    if (depNode.isIncluded()) {</span>
+<span class="fc" id="L248">                        Dependency dep = toMavenDependency(depNode);</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">                        String scope = dep.getScope() != null ? dep.getScope() : &quot;compile&quot;;</span>
+
+                        // Plugin dependencies can only have scope: compile, runtime, or system
+<span class="pc bpc" id="L252" title="2 of 6 branches missed.">                        if (scope.equals(&quot;compile&quot;) || scope.equals(&quot;runtime&quot;) || scope.equals(&quot;system&quot;)) {</span>
+<span class="fc" id="L253">                            dependencies.add(dep);</span>
+                        }
+                    }
+<span class="fc" id="L256">                    depQueue.addAll(depNode.getChildren());</span>
+<span class="fc" id="L257">                }</span>
+
+<span class="fc" id="L259">                plugin.setDependencies(dependencies);</span>
+            }
+<span class="fc" id="L261">        }</span>
+<span class="fc" id="L262">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

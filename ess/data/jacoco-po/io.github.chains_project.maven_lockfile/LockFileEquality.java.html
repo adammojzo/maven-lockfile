@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LockFileEquality.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile</a> &gt; <span class="el_source">LockFileEquality.java</span></div><h1>LockFileEquality.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile;
+
+import io.github.chains_project.maven_lockfile.data.LockFile;
+import io.github.chains_project.maven_lockfile.data.MavenPlugin;
+import io.github.chains_project.maven_lockfile.data.Pom;
+import io.github.chains_project.maven_lockfile.graph.DependencyNode;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Equality helpers used by {@link io.github.chains_project.maven_lockfile.reporting.ValidationPhases}
+ * to compare an on-disk lockfile against a freshly-generated one.
+ *
+ * &lt;p&gt;Each method covers one independently-testable concern:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@link #coreEqual}: GAV and dependency nodes — the minimum required for a valid lockfile.
+ *   &lt;li&gt;{@link #mavenPluginsEqual}: plugin coordinates, checksums, resolved metadata, and dependencies.
+ *   &lt;li&gt;{@link #bomsEqualForAll}: top-level BOMs and per-node BOMs across all dependencies and plugins.
+ *   &lt;li&gt;{@link #parentPomsEqualForAll}: parentPom on every dependency node and plugin.
+ * &lt;/ul&gt;
+ *
+ * Maven extensions and environment are compared directly with {@link Objects#equals} in their
+ * respective {@link io.github.chains_project.maven_lockfile.reporting.ValidationPhase} implementations.
+ */
+public final class LockFileEquality {
+
+    private LockFileEquality() {}
+
+    public static boolean coreEqual(LockFile a, LockFile b) {
+<span class="fc bfc" id="L32" title="All 2 branches covered.">        return Objects.equals(a.getName(), b.getName())</span>
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getGroupId(), b.getGroupId())</span>
+<span class="pc bpc" id="L34" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getVersion(), b.getVersion())</span>
+<span class="fc bfc" id="L35" title="All 2 branches covered.">                &amp;&amp; dependencySetsEqual(a.getDependencies(), b.getDependencies());</span>
+    }
+
+    public static boolean mavenPluginsEqual(LockFile a, LockFile b) {
+<span class="fc" id="L39">        return pluginSetsEqual(a.getMavenPlugins(), b.getMavenPlugins());</span>
+    }
+
+    private static boolean dependencySetsEqual(Set&lt;DependencyNode&gt; a, Set&lt;DependencyNode&gt; b) {
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        return a.size() == b.size()</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">                &amp;&amp; a.stream().allMatch(nA -&gt; b.stream().anyMatch(nB -&gt; dependencyNodeEqual(nA, nB)));</span>
+    }
+
+    private static boolean dependencyNodeEqual(DependencyNode a, DependencyNode b) {
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">        return Objects.equals(a.getGroupId(), b.getGroupId())</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getArtifactId(), b.getArtifactId())</span>
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getVersion(), b.getVersion())</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getClassifier(), b.getClassifier())</span>
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getType(), b.getType())</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getChecksumAlgorithm(), b.getChecksumAlgorithm())</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">                &amp;&amp; Objects.equals(a.getChecksum(), b.getChecksum())</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getScope(), b.getScope())</span>
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getSelectedVersion(), b.getSelectedVersion())</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getParent(), b.getParent())</span>
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">                &amp;&amp; dependencySetsEqual(a.getChildren(), b.getChildren());</span>
+    }
+
+    private static boolean pluginSetsEqual(Set&lt;MavenPlugin&gt; a, Set&lt;MavenPlugin&gt; b) {
+<span class="pc bpc" id="L62" title="1 of 4 branches missed.">        return a.size() == b.size() &amp;&amp; a.stream().allMatch(pA -&gt; b.stream().anyMatch(pB -&gt; mavenPluginEqual(pA, pB)));</span>
+    }
+
+    private static boolean mavenPluginEqual(MavenPlugin a, MavenPlugin b) {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        return Objects.equals(a.getGroupId(), b.getGroupId())</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                &amp;&amp; Objects.equals(a.getArtifactId(), b.getArtifactId())</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getVersion(), b.getVersion())</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">                &amp;&amp; Objects.equals(a.getChecksum(), b.getChecksum())</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getChecksumAlgorithm(), b.getChecksumAlgorithm())</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getResolved(), b.getResolved())</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getRepositoryId(), b.getRepositoryId())</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">                &amp;&amp; dependencySetsEqual(a.getDependencies(), b.getDependencies());</span>
+    }
+
+    public static boolean bomsEqualForAll(LockFile a, LockFile b, boolean compareParentChains) {
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (!pomSetsEqual(a.getBoms(), b.getBoms(), compareParentChains)) return false;</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (!nodeBomsEqual(a.getDependencies(), b.getDependencies(), compareParentChains)) return false;</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        for (MavenPlugin pA : a.getMavenPlugins()) {</span>
+<span class="fc" id="L80">            Optional&lt;MavenPlugin&gt; pB = findMatchingPlugin(pA, b.getMavenPlugins());</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">            if (pB.isEmpty()) return false;</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">            if (!nodeBomsEqual(pA.getDependencies(), pB.get().getDependencies(), compareParentChains)) return false;</span>
+<span class="fc" id="L83">        }</span>
+<span class="fc" id="L84">        return true;</span>
+    }
+
+    private static boolean nodeBomsEqual(Set&lt;DependencyNode&gt; a, Set&lt;DependencyNode&gt; b, boolean compareParentChains) {
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">        return a.size() == b.size()</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">                &amp;&amp; a.stream().allMatch(nA -&gt; b.stream()</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">                        .anyMatch(nB -&gt; Objects.equals(nA.getGroupId(), nB.getGroupId())</span>
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">                                &amp;&amp; Objects.equals(nA.getArtifactId(), nB.getArtifactId())</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">                                &amp;&amp; Objects.equals(nA.getVersion(), nB.getVersion())</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">                                &amp;&amp; pomSetsEqual(nA.getBoms(), nB.getBoms(), compareParentChains)</span>
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">                                &amp;&amp; nodeBomsEqual(nA.getChildren(), nB.getChildren(), compareParentChains)));</span>
+    }
+
+    static boolean pomSetsEqual(Set&lt;Pom&gt; a, Set&lt;Pom&gt; b, boolean compareParentChains) {
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        Set&lt;Pom&gt; safeA = a == null ? Collections.emptySet() : a;</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        Set&lt;Pom&gt; safeB = b == null ? Collections.emptySet() : b;</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        return safeA.size() == safeB.size()</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">                &amp;&amp; safeA.stream().allMatch(pA -&gt; safeB.stream().anyMatch(pB -&gt; pomEqual(pA, pB, compareParentChains)));</span>
+    }
+
+    public static boolean pomEqual(Pom a, Pom b, boolean compareParentChains) {
+<span class="pc bpc" id="L105" title="3 of 4 branches missed.">        if (a == null &amp;&amp; b == null) return true;</span>
+<span class="pc bpc" id="L106" title="2 of 4 branches missed.">        if (a == null || b == null) return false;</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">        return Objects.equals(a.getGroupId(), b.getGroupId())</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getArtifactId(), b.getArtifactId())</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getVersion(), b.getVersion())</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getRelativePath(), b.getRelativePath())</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getResolved(), b.getResolved())</span>
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getRepositoryId(), b.getRepositoryId())</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals(a.getChecksumAlgorithm(), b.getChecksumAlgorithm())</span>
+<span class="fc bfc" id="L114" title="All 4 branches covered.">                &amp;&amp; Objects.equals(a.getChecksum(), b.getChecksum())</span>
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">                &amp;&amp; (!compareParentChains || pomEqual(a.getParent(), b.getParent(), true));</span>
+    }
+
+    public static boolean parentPomsEqualForAll(LockFile a, LockFile b) {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        if (!nodeParentPomsEqual(a.getDependencies(), b.getDependencies())) return false;</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        for (MavenPlugin pA : a.getMavenPlugins()) {</span>
+<span class="fc" id="L121">            Optional&lt;MavenPlugin&gt; pB = findMatchingPlugin(pA, b.getMavenPlugins());</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">            if (pB.isEmpty()) return false;</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            if (!Objects.equals(pA.getParentPom(), pB.get().getParentPom())) return false;</span>
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">            if (!nodeParentPomsEqual(pA.getDependencies(), pB.get().getDependencies())) return false;</span>
+<span class="fc" id="L125">        }</span>
+<span class="fc" id="L126">        return true;</span>
+    }
+
+    private static boolean nodeParentPomsEqual(Set&lt;DependencyNode&gt; a, Set&lt;DependencyNode&gt; b) {
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">        return a.size() == b.size()</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">                &amp;&amp; a.stream().allMatch(nA -&gt; b.stream()</span>
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">                        .anyMatch(nB -&gt; Objects.equals(nA.getGroupId(), nB.getGroupId())</span>
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">                                &amp;&amp; Objects.equals(nA.getArtifactId(), nB.getArtifactId())</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">                                &amp;&amp; Objects.equals(nA.getVersion(), nB.getVersion())</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">                                &amp;&amp; Objects.equals(nA.getParentPom(), nB.getParentPom())</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">                                &amp;&amp; nodeParentPomsEqual(nA.getChildren(), nB.getChildren())));</span>
+    }
+
+    private static Optional&lt;MavenPlugin&gt; findMatchingPlugin(MavenPlugin target, Set&lt;MavenPlugin&gt; plugins) {
+<span class="fc" id="L140">        return plugins.stream()</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">                .filter(p -&gt; Objects.equals(target.getGroupId(), p.getGroupId())</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">                        &amp;&amp; Objects.equals(target.getArtifactId(), p.getArtifactId())</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">                        &amp;&amp; Objects.equals(target.getVersion(), p.getVersion()))</span>
+<span class="fc" id="L144">                .findFirst();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArtifactType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">ArtifactType.java</span></div><h1>ArtifactType.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import com.google.common.base.Strings;
+import java.util.Objects;
+
+/**
+ * A Maven artifact type specifies the packaging type of the artifact (e.g., jar, pom, war).
+ * The default type is &quot;jar&quot;, so we return null for &quot;jar&quot; or null/empty input to avoid redundant data.
+ *
+ * This is based on @see &lt;a href=&quot;https://maven.apache.org/repositories/dependencies.html#dependency-types&quot;&gt;Maven Dependency Types&lt;/a&gt;
+ */
+public class ArtifactType implements Comparable&lt;ArtifactType&gt; {
+    public static ArtifactType of(String type) {
+<span class="pc bpc" id="L14" title="1 of 4 branches missed.">        if (Strings.isNullOrEmpty(type) || &quot;jar&quot;.equals(type)) {</span>
+<span class="fc" id="L15">            return null;</span>
+        }
+<span class="fc" id="L17">        return new ArtifactType(type);</span>
+    }
+
+    private final String value;
+
+<span class="fc" id="L22">    private ArtifactType(String type) {</span>
+<span class="fc" id="L23">        this.value = Objects.requireNonNull(type, &quot;type is marked non-null but is null&quot;);</span>
+<span class="fc" id="L24">    }</span>
+
+    public String getValue() {
+<span class="fc" id="L27">        return value;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L32">        return &quot;{&quot; + &quot; ArtifactType='&quot; + getValue() + &quot;'&quot; + &quot;}&quot;;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">        if (o == this) return true;</span>
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">        if (!(o instanceof ArtifactType)) {</span>
+<span class="nc" id="L39">            return false;</span>
+        }
+<span class="fc" id="L41">        ArtifactType artifactType = (ArtifactType) o;</span>
+<span class="fc" id="L42">        return Objects.equals(value, artifactType.value);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L47">        return Objects.hashCode(value);</span>
+    }
+
+    @Override
+    public int compareTo(ArtifactType o) {
+<span class="nc" id="L52">        return this.value.compareTo(o.value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

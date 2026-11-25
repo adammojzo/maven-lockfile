@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArtifactId.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.data</a> &gt; <span class="el_source">ArtifactId.java</span></div><h1>ArtifactId.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.data;
+
+import com.google.common.base.Strings;
+import java.util.Objects;
+
+/**
+ * This class represents an artifact id.
+ * An artifact id is an identifier for a maven artifact, and is unique within a group id.
+ * It is a string that is not null or empty. It is immutable.
+ * It is used to identify a maven artifact in a lock file.
+ * It is also used to identify a maven artifact in a dependency graph.
+ * For example, the artifact id of the artifact &quot;org.apache.commons:commons-lang3:3.9&quot; is &quot;commons-lang3&quot;.
+ */
+public class ArtifactId implements Comparable&lt;ArtifactId&gt; {
+    public static ArtifactId of(String artifactId) {
+        // Artifact ID must be non-null and non-empty.
+<span class="fc" id="L17">        String checked = Objects.requireNonNull(artifactId);</span>
+<span class="fc bfc" id="L18" title="All 2 branches covered.">        if (Strings.isNullOrEmpty(checked)) {</span>
+<span class="fc" id="L19">            throw new IllegalArgumentException(&quot;artifactId cannot be empty&quot;);</span>
+        }
+<span class="fc" id="L21">        return new ArtifactId(artifactId);</span>
+    }
+
+    private final String value;
+
+<span class="fc" id="L26">    public ArtifactId(String artifactId) {</span>
+<span class="fc" id="L27">        this.value = Objects.requireNonNull(artifactId);</span>
+<span class="fc" id="L28">    }</span>
+
+    public String getValue() {
+<span class="fc" id="L31">        return value;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L36">        return &quot;{&quot; + &quot; ArtifactId='&quot; + getValue() + &quot;'&quot; + &quot;}&quot;;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">        if (o == this) return true;</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">        if (!(o instanceof ArtifactId)) {</span>
+<span class="nc" id="L43">            return false;</span>
+        }
+<span class="fc" id="L45">        ArtifactId artifactId = (ArtifactId) o;</span>
+<span class="fc" id="L46">        return Objects.equals(value, artifactId.value);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L51">        return Objects.hashCode(value);</span>
+    }
+
+    @Override
+    public int compareTo(ArtifactId o) {
+<span class="fc" id="L56">        return this.value.compareTo(o.value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

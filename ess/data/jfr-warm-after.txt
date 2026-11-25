@@ -1,0 +1,36 @@
+== jdk.SocketRead (>=10ms): 0 events, total 0.0 s blocked in socket reads
+
+== jdk.ExecutionSample: 586 CPU samples
+   top self frames:
+    20.1%  java.lang.invoke.VarHandleByteArrayAsInts$ArrayHandle.index
+     3.9%  sun.security.provider.SHA.implCompress0
+     3.8%  com.sun.crypto.provider.CounterMode.implCrypt
+     3.6%  org.codehaus.plexus.util.xml.pull.MXParser.nextImpl
+     3.6%  com.sun.crypto.provider.GHASH.processBlocks
+     2.9%  java.util.concurrent.ConcurrentHashMap.transfer
+     1.4%  java.util.concurrent.ConcurrentHashMap.putVal
+     1.4%  org.apache.maven.model.interpolation.StringVisitorModelInterpolator$ModelVisitor.visit
+     1.2%  com.sun.crypto.provider.CounterMode.increment
+     1.2%  org.codehaus.plexus.util.xml.pull.MXParser.parseStartTag
+   plugin methods (inclusive):
+    43.5%  GenerateLockFileMojo.execute
+    43.2%  LockFileFacade.generateLockFileFromProject
+    38.9%  resolvers.ProjectBuilder.buildProjectFromPomFile
+    38.9%  resolvers.ProjectBuilder.buildFromGav
+    38.2%  LockFileFacade.getAllPlugins
+    35.3%  LockFileFacade.lambda$resolveParentsAndBomsForDependencies$9
+    35.2%  LockFileFacade$$Lambda.accept
+    35.0%  LockFileFacade.resolveParentsAndBomsForDependencies
+    31.1%  checksum.RemoteChecksumCalculator.calculateChecksumInternal
+    30.9%  checksum.RemoteChecksumCalculator.calculateArtifactChecksum
+    30.5%  LockFileFacade.resolveComponentDependencies
+    29.5%  checksum.RemoteChecksumCalculator.lambda$prewarmArtifactCache$2
+== jdk.ExecutionSample under buildProjectFromPomFile: 228 of 586
+      192  (0.0s)  DefaultModelBuilder.build (model only)
+       28  (0.0s)  other
+        8  (0.0s)  DefaultProjectBuilder.resolveDependencies (dependency resolution)
+== jdk.SocketRead under buildProjectFromPomFile: 0 of 0
+== callers of VarHandleByteArrayAsInts hot frame
+     118 java.lang.invoke.VarHandleByteArrayAsInts$ArrayHandle.get <- java.lang.invoke.VarHandleGuards.guard_LI_I <- sun.security.provider.ByteArrayAccess.b2iBig64 <- sun.security.provider.SHA.implCompress0
+       2 java.lang.invoke.VarHandleGuards.guard_LI_I <- sun.security.provider.ByteArrayAccess.b2iBig64 <- sun.security.provider.SHA2.implCompress0 <- sun.security.provider.SHA2.implCompress
+       2 java.lang.invoke.VarHandleGuards.guard_LI_I <- sun.security.provider.ByteArrayAccess.b2iBig64 <- sun.security.provider.SHA.implCompress0 <- sun.security.provider.SHA.implCompress

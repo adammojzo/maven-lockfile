@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenerateLockFileMojo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile</a> &gt; <span class="el_source">GenerateLockFileMojo.java</span></div><h1>GenerateLockFileMojo.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile;
+
+import static io.github.chains_project.maven_lockfile.LockFileFacade.getLockFilePath;
+
+import io.github.chains_project.maven_lockfile.checksum.AbstractChecksumCalculator;
+import io.github.chains_project.maven_lockfile.data.Config;
+import io.github.chains_project.maven_lockfile.data.Environment;
+import io.github.chains_project.maven_lockfile.data.LockFile;
+import io.github.chains_project.maven_lockfile.data.MetaData;
+import io.github.chains_project.maven_lockfile.reporting.PluginLogManager;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.ResolutionScope;
+
+/**
+ * This plugin generates a lock file for a project. The lock file contains the checksums of all
+ * dependencies of the project. This can be used to validate that the dependencies of a project
+ * have not changed.
+ *
+ */
+@Mojo(
+        name = &quot;generate&quot;,
+        defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
+        requiresDependencyResolution = ResolutionScope.COMPILE,
+        requiresOnline = true)
+<span class="nc" id="L31">public class GenerateLockFileMojo extends AbstractLockfileMojo {</span>
+
+    @Parameter(defaultValue = &quot;true&quot;, property = &quot;getConfigFromFile&quot;)
+    boolean getConfigFromFile;
+
+    /**
+     * Generate a lock file for the dependencies of the current project.
+     * @throws MojoExecutionException if the lock file could not be written or the generation failed.
+     */
+    public void execute() throws MojoExecutionException {
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        if (skip) {</span>
+<span class="nc" id="L42">            getLog().info(&quot;Skipping maven-lockfile&quot;);</span>
+<span class="nc" id="L43">            return;</span>
+        }
+<span class="nc" id="L45">        PluginLogManager.setLog(getLog());</span>
+        try {
+<span class="nc bnc" id="L47" title="All 2 branches missed.">            LockFile lockFileFromFile = Files.exists(getLockFilePath(project, lockfileName))</span>
+<span class="nc" id="L48">                    ? LockFile.readLockFile(getLockFilePath(project, lockfileName))</span>
+<span class="nc" id="L49">                    : null;</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">            Config config = getConfigFromFile ? getConfig(lockFileFromFile) : getConfig();</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">            if (config.isHermetic()) {</span>
+<span class="nc" id="L52">                ensureHermeticExtensionRegistered();</span>
+            }
+<span class="nc" id="L54">            Environment environment = null;</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">            if (config.isIncludeEnvironment()) {</span>
+<span class="nc" id="L56">                environment = generateMetaInformation();</span>
+            }
+<span class="nc" id="L58">            MetaData metaData = new MetaData(environment, config);</span>
+
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            if (lockFileFromFile == null) {</span>
+<span class="nc" id="L61">                getLog().info(&quot;No lockfile found. Generating new lockfile.&quot;);</span>
+            }
+<span class="nc" id="L63">            AbstractChecksumCalculator checksumCalculator = getChecksumCalculator(config);</span>
+<span class="nc" id="L64">            LockFile lockFile = LockFileFacade.generateLockFileFromProject(</span>
+                    session, project, dependencyCollectorBuilder, checksumCalculator, metaData, repositorySystem);
+
+<span class="nc" id="L67">            Path lockFilePath = LockFileFacade.getLockFilePath(project, lockfileName);</span>
+<span class="nc" id="L68">            Files.writeString(lockFilePath, JsonUtils.toJson(lockFile));</span>
+<span class="nc" id="L69">            getLog().info(&quot;Lockfile written to &quot; + lockFilePath);</span>
+<span class="nc" id="L70">        } catch (IOException e) {</span>
+<span class="nc" id="L71">            getLog().error(e);</span>
+<span class="nc" id="L72">        }</span>
+<span class="nc" id="L73">    }</span>
+
+    /**
+     * When {@code hermetic} is enabled, dynamic-resolution capture only works if this plugin is
+     * also registered as a Maven core extension via {@code .mvn/extensions.xml} - core extensions
+     * load before any Mojo runs, so this check can only warn/repair the file for the *next* build,
+     * not the current one. Creates the file if it's missing entirely; warns (without overwriting)
+     * if it exists but doesn't appear to reference this plugin.
+     */
+    private void ensureHermeticExtensionRegistered() {
+<span class="nc" id="L83">        var multiModuleProjectDirectory = session.getRequest().getMultiModuleProjectDirectory();</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (multiModuleProjectDirectory == null) {</span>
+<span class="nc" id="L85">            return;</span>
+        }
+<span class="nc" id="L87">        String groupId = mojo.getPlugin().getGroupId();</span>
+<span class="nc" id="L88">        String artifactId = mojo.getPlugin().getArtifactId();</span>
+<span class="nc" id="L89">        String version = mojo.getPlugin().getVersion();</span>
+<span class="nc" id="L90">        Path extensionsDir = multiModuleProjectDirectory.toPath().resolve(&quot;.mvn&quot;);</span>
+<span class="nc" id="L91">        Path extensionsFile = extensionsDir.resolve(&quot;extensions.xml&quot;);</span>
+
+<span class="nc" id="L93">        Path projectBasedir = project.getBasedir().toPath().toAbsolutePath().normalize();</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (!multiModuleProjectDirectory.toPath().toAbsolutePath().normalize().equals(projectBasedir)) {</span>
+            // Maven resolved the core-extension directory to an *ancestor* of this project (e.g.
+            // no .mvn directory of its own, but nested inside some other Maven project's tree) -
+            // do not write into a directory this project doesn't own.
+<span class="nc" id="L98">            getLog().warn(&quot;hermetic=true, but the detected Maven core-extension directory (&quot;</span>
+                    + multiModuleProjectDirectory + &quot;) is not this project's own root (&quot; + projectBasedir
+                    + &quot;), so it can't be safely created automatically. Register &quot; + groupId + &quot;:&quot; + artifactId
+                    + &quot; as a core extension via &quot; + extensionsFile + &quot; yourself and re-run the build.&quot;);
+<span class="nc" id="L102">            return;</span>
+        }
+
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (Files.exists(extensionsFile)) {</span>
+            try {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">                if (!Files.readString(extensionsFile).contains(artifactId)) {</span>
+<span class="nc" id="L108">                    getLog().warn(&quot;hermetic=true, but &quot; + extensionsFile + &quot; does not appear to register &quot;</span>
+                            + groupId + &quot;:&quot; + artifactId + &quot; as a core extension. Dynamically-resolved &quot;
+                            + &quot;artifacts (e.g. Surefire's test-framework provider) will not be captured &quot;
+                            + &quot;until it is added there and the build is re-run.&quot;);
+                }
+<span class="nc" id="L113">            } catch (IOException e) {</span>
+<span class="nc" id="L114">                getLog().warn(&quot;hermetic=true, but could not read &quot; + extensionsFile, e);</span>
+<span class="nc" id="L115">            }</span>
+<span class="nc" id="L116">            return;</span>
+        }
+
+        try {
+<span class="nc" id="L120">            Files.createDirectories(extensionsFile.getParent());</span>
+<span class="nc" id="L121">            Files.writeString(</span>
+                    extensionsFile,
+                    &quot;&lt;?xml version=\&quot;1.0\&quot; encoding=\&quot;UTF-8\&quot;?&gt;\n&quot;
+                            + &quot;&lt;extensions xmlns=\&quot;http://maven.apache.org/EXTENSIONS/1.2.0\&quot;\n&quot;
+                            + &quot;            xmlns:xsi=\&quot;http://www.w3.org/2001/XMLSchema-instance\&quot;\n&quot;
+                            + &quot;            xsi:schemaLocation=\&quot;http://maven.apache.org/EXTENSIONS/1.2.0&quot;
+                            + &quot; http://maven.apache.org/xsd/core-extensions-1.2.0.xsd\&quot;&gt;\n&quot;
+                            + &quot;  &lt;extension&gt;\n&quot;
+                            + &quot;    &lt;groupId&gt;&quot; + groupId + &quot;&lt;/groupId&gt;\n&quot;
+                            + &quot;    &lt;artifactId&gt;&quot; + artifactId + &quot;&lt;/artifactId&gt;\n&quot;
+                            + &quot;    &lt;version&gt;&quot; + version + &quot;&lt;/version&gt;\n&quot;
+                            + &quot;  &lt;/extension&gt;\n&quot;
+                            + &quot;&lt;/extensions&gt;\n&quot;);
+<span class="nc" id="L134">            getLog().warn(&quot;hermetic=true, but no &quot; + extensionsFile + &quot; was found, so dynamically-resolved &quot;</span>
+                    + &quot;artifacts could not be captured this run. Created &quot; + extensionsFile + &quot; registering &quot;
+                    + groupId + &quot;:&quot; + artifactId + &quot; as a core extension - re-run the build for hermetic &quot;
+                    + &quot;capture to take effect.&quot;);
+<span class="nc" id="L138">        } catch (IOException e) {</span>
+<span class="nc" id="L139">            getLog().warn(</span>
+                            &quot;hermetic=true, but no &quot; + extensionsFile + &quot; was found and it could not be created &quot;
+                                    + &quot;automatically. Register &quot; + groupId + &quot;:&quot; + artifactId
+                                    + &quot; as a core extension via &quot;
+                                    + extensionsFile + &quot; to enable dynamic-resolution capture.&quot;,
+                            e);
+<span class="nc" id="L145">        }</span>
+<span class="nc" id="L146">    }</span>
+
+    private Config getConfig(LockFile lockFileFromFile) {
+<span class="nc bnc" id="L149" title="All 4 branches missed.">        if (lockFileFromFile == null || lockFileFromFile.getConfig() == null) {</span>
+<span class="nc" id="L150">            return getConfig();</span>
+        }
+
+<span class="nc" id="L153">        Config config = mergeConfigWithCliArgs(lockFileFromFile.getConfig());</span>
+
+<span class="nc" id="L155">        return new Config(</span>
+<span class="nc" id="L156">                config.getMavenPluginsInclusion(),</span>
+<span class="nc" id="L157">                config.getOnValidationFailure(),</span>
+<span class="nc" id="L158">                config.getOnPomValidationFailure(),</span>
+<span class="nc" id="L159">                config.getOnMavenPluginValidationFailure(),</span>
+<span class="nc" id="L160">                config.getOnEnvironmentalValidationFailure(),</span>
+<span class="nc" id="L161">                config.getEnvironmentInclusion(),</span>
+<span class="nc" id="L162">                config.getReductionState(),</span>
+<span class="nc" id="L163">                mojo.getPlugin().getVersion(),</span>
+<span class="nc" id="L164">                config.getChecksumMode(),</span>
+<span class="nc" id="L165">                config.getChecksumAlgorithm(),</span>
+<span class="nc" id="L166">                config.getBomsInclusion(),</span>
+<span class="nc" id="L167">                config.getOnBomValidationFailure(),</span>
+<span class="nc" id="L168">                config.getParentPomInclusion(),</span>
+<span class="nc" id="L169">                config.getOnParentPomValidationFailure(),</span>
+<span class="nc" id="L170">                config.getMavenExtensionsInclusion(),</span>
+<span class="nc" id="L171">                config.getOnMavenExtensionsValidationFailure(),</span>
+<span class="nc" id="L172">                config.getHermeticInclusion());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

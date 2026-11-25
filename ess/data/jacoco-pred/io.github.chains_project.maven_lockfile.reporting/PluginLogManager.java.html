@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginLogManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">maven-lockfile-plugin</a> &gt; <a href="index.source.html" class="el_package">io.github.chains_project.maven_lockfile.reporting</a> &gt; <span class="el_source">PluginLogManager.java</span></div><h1>PluginLogManager.java</h1><pre class="source lang-java linenums">package io.github.chains_project.maven_lockfile.reporting;
+
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
+
+public class PluginLogManager {
+    private static Log log;
+
+    private PluginLogManager() {}
+
+    public static void setLog(Log log) {
+<span class="nc" id="L12">        PluginLogManager.log = log;</span>
+<span class="nc" id="L13">    }</span>
+
+    public static Log getLog() {
+<span class="fc bfc" id="L16" title="All 2 branches covered.">        if (log == null) {</span>
+<span class="fc" id="L17">            log = new SystemStreamLog();</span>
+        }
+
+<span class="fc" id="L20">        return log;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
