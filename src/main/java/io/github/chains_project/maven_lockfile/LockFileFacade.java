@@ -481,7 +481,9 @@ public class LockFileFacade {
             MavenSession session,
             MavenProject rootProject,
             AbstractChecksumCalculator checksumCalculator) {
-        ProjectBuilder builder = new ProjectBuilder(session, rootProject.getRemoteArtifactRepositories());
+        // Only the parent chain and dependencyManagement of each dependency are read here, so skip resolving
+        // (and downloading) the dependency's own transitive dependencies.
+        ProjectBuilder builder = new ProjectBuilder(session, rootProject.getRemoteArtifactRepositories(), false);
         BomResolver bomResolver =
                 new BomResolver(session, rootProject.getRemoteArtifactRepositories(), checksumCalculator);
 

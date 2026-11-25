@@ -26,11 +26,24 @@ public class ProjectBuilder {
     @SuppressWarnings("deprecation")
     private final List<ArtifactRepository> repositories;
 
+    private final boolean resolveDependencies;
+
     @SuppressWarnings("deprecation")
     public ProjectBuilder(MavenSession session, List<ArtifactRepository> repositories) {
+        this(session, repositories, true);
+    }
+
+    /**
+     * @param resolveDependencies whether built projects get their dependencies resolved (which downloads every
+     *     transitive artifact). Pass {@code false} when only the model is needed, e.g. to read the parent chain
+     *     or imported BOMs.
+     */
+    @SuppressWarnings("deprecation")
+    public ProjectBuilder(MavenSession session, List<ArtifactRepository> repositories, boolean resolveDependencies) {
         this.session = session;
         this.log = PluginLogManager.getLog();
         this.repositories = repositories;
+        this.resolveDependencies = resolveDependencies;
     }
 
     /**
@@ -108,7 +121,7 @@ public class ProjectBuilder {
         ProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
         buildingRequest.setRemoteRepositories(repositories);
         buildingRequest.setProcessPlugins(false);
-        buildingRequest.setResolveDependencies(true);
+        buildingRequest.setResolveDependencies(resolveDependencies);
 
         try {
             // Note: getContainer() is deprecated but there's no clear replacement in the current Maven API

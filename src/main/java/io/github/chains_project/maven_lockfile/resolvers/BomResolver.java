@@ -44,7 +44,7 @@ public class BomResolver {
     public Set<Pom> resolveForProject(MavenProject project) {
         var model = project.getOriginalModel();
         var dependencyManagement = model.getDependencyManagement();
-        var projectBuilder = new ProjectBuilder(session, repositories);
+        var projectBuilder = new ProjectBuilder(session, repositories, false);
         var boms = new TreeSet<Pom>();
 
         if (dependencyManagement == null
@@ -86,7 +86,7 @@ public class BomResolver {
      */
     @SuppressWarnings("deprecation")
     public void resolveBomsForDependencies(DependencyGraph graph) {
-        ProjectBuilder projectBuilder = new ProjectBuilder(session, repositories);
+        ProjectBuilder projectBuilder = new ProjectBuilder(session, repositories, false);
         BomResolver bomResolver = new BomResolver(session, repositories, checksumCalculator);
 
         graph.getDependencySet().forEach(node -> {
