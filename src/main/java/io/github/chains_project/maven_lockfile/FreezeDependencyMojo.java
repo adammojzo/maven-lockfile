@@ -93,7 +93,7 @@ public class FreezeDependencyMojo extends AbstractMojo {
         Map<String, Dependency> pomDependencyMap = createDependencyMap(pomDependencies);
         Map<String, Dependency> dependencyManagementMap = createDependencyMap(dependencyManagementDependencies);
         for (Dependency dep : filteredDependencies) {
-            String key = dep.getGroupId() + ":" + dep.getArtifactId();
+            String key = dependencyKey(dep);
             Dependency pomDependency = pomDependencyMap.get(key);
             Dependency dependencyManagementDep = dependencyManagementMap.get(key);
             if (pomDependency != null) {
@@ -113,10 +113,20 @@ public class FreezeDependencyMojo extends AbstractMojo {
     private Map<String, Dependency> createDependencyMap(List<Dependency> dependencies) {
         Map<String, Dependency> dependencyMap = new HashMap<>();
         for (Dependency dep : dependencies) {
-            String key = dep.getGroupId() + ":" + dep.getArtifactId();
+            String key = dependencyKey(dep);
             dependencyMap.put(key, dep);
         }
         return dependencyMap;
+    }
+
+    /**
+     * Identifies a dependency by groupId:artifactId, plus its classifier if it has one, so that
+     * classifier variants of the same artifact (e.g. per-platform natives) are frozen separately.
+     */
+    private static String dependencyKey(Dependency dep) {
+        String key = dep.getGroupId() + ":" + dep.getArtifactId();
+        String classifier = dep.getClassifier();
+        return classifier == null || classifier.isEmpty() ? key : key + ":" + classifier;
     }
 
     private void writePomLockFile(Model pomModel, File pomLockFile) throws IOException {
@@ -133,7 +143,7 @@ public class FreezeDependencyMojo extends AbstractMojo {
         while (!depQueue.isEmpty()) {
             var depNode = depQueue.poll();
             Dependency dep = toMavenDependency(depNode);
-            String key = dep.getGroupId() + ":" + dep.getArtifactId();
+            String key = dependencyKey(dep);
             if (depNode.isIncluded()) {
                 nearestVersionMap.put(key, dep);
             }
